@@ -470,7 +470,7 @@ struct task_struct {
 	 int requested_time;
 	 int number_of_trails;
 	 int current_trail;
-	 int isOverdue; //if 0 - no , if 1 - yes
+	 int is_overdue; //if 0 - no , if 1 - yes
 };
 
 /*
@@ -579,7 +579,7 @@ extern struct exec_domain	default_exec_domain;
 	requested_time:	0,							\
 	number_of_trails:	0,						\
 	current_trail:	0,				\
-	isOverdue:	0,						\
+	is_overdue:	0,						\
 	
 	/*
 	 * HW2
