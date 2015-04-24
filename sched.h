@@ -119,6 +119,7 @@ extern unsigned long nr_uninterruptible(void);
 #define SCHED_OTHER		0
 #define SCHED_FIFO		1
 #define SCHED_RR		2
+#define SCHED_SHORT		3
 /*
  * HW2
  * add define SCHED_SHORT
@@ -130,6 +131,8 @@ struct sched_param {
 	 * HW2
 	 * add two fields: requested_time, number_of_trails.
 	 */
+	int requested_time;
+	int number_of_trails;
 };
 
 struct completion;
@@ -464,6 +467,10 @@ struct task_struct {
 	 * HW2
 	 * add four fields: requested_time, number_of_trails, current_trail, isOverdue.
 	 */
+	 int requested_time;
+	 int number_of_trails;
+	 int current_trail;
+	 int isOverdue; //if 0 - no , if 1 - yes
 };
 
 /*
@@ -569,6 +576,10 @@ extern struct exec_domain	default_exec_domain;
     blocked:		{{0}},						\
     alloc_lock:		SPIN_LOCK_UNLOCKED,				\
     journal_info:	NULL,						\
+	requested_time:	0,							\
+	number_of_trails:	0,						\
+	current_trail:	0,				\
+	isOverdue:	0,						\
 	
 	/*
 	 * HW2

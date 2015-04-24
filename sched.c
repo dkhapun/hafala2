@@ -142,11 +142,12 @@ struct runqueue {
 	int prev_nr_running[NR_CPUS];
 	task_t *migration_thread;
 	list_t migration_queue;
-	
 	/*
 	 * HW2
 	 * add short, overdue, nr_overdue
 	 */
+	 unsigned long nr_overdue;
+	 prio_array_t *short, *overdue;
 } ____cacheline_aligned;
 
 static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
