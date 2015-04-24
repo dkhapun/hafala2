@@ -138,16 +138,15 @@ struct runqueue {
 	unsigned long nr_running, nr_switches, expired_timestamp;
 	signed long nr_uninterruptible;
 	task_t *curr, *idle;
-	prio_array_t *active, *expired, arrays[2]; // HW2 - expand arrays to 4.
+	prio_array_t *active, *expired, arrays[4]; // HW2 - expand arrays to 4.
 	int prev_nr_running[NR_CPUS];
 	task_t *migration_thread;
 	list_t migration_queue;
 	/*
 	 * HW2
-	 * add short, overdue, nr_overdue
+	 * add short_q, overdue
 	 */
-	 unsigned long nr_overdue;
-	 prio_array_t *short, *overdue;
+	 prio_array_t *short_q, *overdue;
 } ____cacheline_aligned;
 
 static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;

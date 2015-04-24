@@ -469,7 +469,7 @@ struct task_struct {
 	 */
 	 int requested_time;
 	 int number_of_trails;
-	 int current_trail;
+	 int current_trail; // starting from 0
 	 int is_overdue; //if 0 - no , if 1 - yes
 };
 
