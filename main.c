@@ -1,4 +1,4 @@
-#include <syscall_maxproc.h>
+#include <hw2_syscalls.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
