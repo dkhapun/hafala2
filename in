@@ -1,0 +1,11 @@
+fork main p1
+fork main p2
+fork main p3
+fork main p4
+fork main p5
+set_sched p1 SHORT 5 50
+is_short p1
+set_sched p2 SHORT 5 50
+is_short p2
+kill p1
+
