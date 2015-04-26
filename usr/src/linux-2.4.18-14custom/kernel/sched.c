@@ -1686,8 +1686,8 @@ void __init sched_init(void)
 		rq->active = rq->arrays;
 		rq->expired = rq->arrays + 1;
 		/* HW2 adding initialize rq's */
-		rq->short_q = rq->array + 2;
-		rq->overdue = rq->array + 3;
+		rq->short_q = rq->arrays + 2;
+		rq->overdue = rq->arrays + 3;
 		
 		spin_lock_init(&rq->lock);
 		INIT_LIST_HEAD(&rq->migration_queue);

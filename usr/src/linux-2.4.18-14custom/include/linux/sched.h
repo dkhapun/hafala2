@@ -579,13 +579,12 @@ extern struct exec_domain	default_exec_domain;
 	requested_time:	0,							\
 	number_of_trails:	0,						\
 	current_trail:	0,				\
-	is_overdue:	0,						\
-	
+	is_overdue:	0,						}
 	/*
 	 * HW2
 	 * initialize added fields.
 	 */
-}
+
 
 
 #ifndef INIT_TASK_SIZE

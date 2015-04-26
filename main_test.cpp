@@ -6,7 +6,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
-#include "api_test.h"
+#include <hw2_syscalls.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/sched.h>
+
 
 using namespace std;
 
@@ -38,7 +43,7 @@ void do_commands() {
     pid_t pid=getpid();
     pid_t child;
     while(true) {
-        api_test::sched_short_param sp = {0};
+        sched_param sp = {0};
         while (!shared->in.ready) nanosleep(&req, NULL); //so this function won't take up all the CPU
         if (shared->exit) exit(0); //when tests have completed
         if (shared->in.pid!=pid)
@@ -67,13 +72,13 @@ void do_commands() {
                 shared->out.result = sched_setscheduler(pid, shared->in.policy, &sp);
                 break;
             case IS_SHORT:
-                shared->out.result = api_test::is_SHORT(pid);
+                shared->out.result = is_SHORT(pid);
                 break;
             case GET_TIME:
-                shared->out.result = api_test::remaining_time(pid);
+                shared->out.result = remaining_time(pid);
                 break;
             case GET_TRIALS:
-                shared->out.result = api_test::remaining_trails(pid);
+                shared->out.result = remaining_trails(pid);
                 break;
         };
         if (shared->out.result<0) shared->out.code=errno;
@@ -96,8 +101,8 @@ void handle_input(pid_t first_child) {
     map<string,string> parent;
     map<string,pid_t> zombies;
     map<string,int> policies;
-    policies["SHORT"] = 0;
-    policies["OTHER"] = 0;
+    policies["SHORT"] = SCHED_SHORT;
+    policies["OTHER"] = SCHED_OTHER;
     m["main"]=first_child;
     string command, arg1, arg2;
     while (cin>>command) {
