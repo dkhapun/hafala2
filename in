@@ -3,13 +3,13 @@ fork main p2
 fork main p3
 fork main p4
 fork main p5
-set_sched p1 SHORT 5 50
+set_sched p1 SCHED_SHORT 5 50
 is_short p1
-set_sched p2 SHORT 5 50
+set_sched p2 SCHED_SHORT 5 50
 is_short p2
 get_time p1
 get_trials p1
-set_sched p2 OTHER 5 50
+set_sched p2 SCHED_OTHER 5 50
 kill p1
 quit
 
