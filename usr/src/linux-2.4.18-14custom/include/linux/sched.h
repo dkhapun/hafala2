@@ -125,12 +125,12 @@ extern unsigned long nr_uninterruptible(void);
  * add define SCHED_SHORT
  */
 
+/*
+ * HW2
+ * add two fields: requested_time, number_of_trails.
+ */
 struct sched_param {
 	int sched_priority;
-	/*
-	 * HW2
-	 * add two fields: requested_time, number_of_trails.
-	 */
 	int requested_time;
 	int number_of_trails;
 };

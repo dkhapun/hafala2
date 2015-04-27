@@ -8,9 +8,8 @@
 #include <errno.h>
 #include <hw2_syscalls.h>
 #include <stdio.h>
-#include <errno.h>
 #include <sys/types.h>
-#include <sys/sched.h>
+#include <sched.h>
 
 
 using namespace std;

@@ -1,4 +1,4 @@
-yes | cp -Rf /mnt/hgfs/vm_share/hafala22/hafala2/usr /
+yes | cp -Rf /mnt/hgfs/SharedFolder/hafala2/usr /
 cd /usr/src/linux-2.4.18-14custom
 make bzImage
 cd arch/i386/boot
