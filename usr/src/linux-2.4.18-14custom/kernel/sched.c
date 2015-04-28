@@ -749,37 +749,18 @@ void scheduler_tick(int user_tick, int system)
 	 * here insert a check whether the current task is SHORT
 	 * if it is not overdue short, and the quantum have expired (if (!--p->time_slice)) do:
 	 * 1 - increase current_trial
-	 * 2 - if the trails have been exhausted (p->current_trail == p->number_of_trails), 
+	 * 2 - if the trails have been exhausted (p->current_trail > p->number_of_trails), 
 	 *		call dequeue_task(p, rq->short), anqueue_task(p, rq->short_overdue), set_tsk_need_resched(p), enqueue_task to short_overdue and update array field of task.
-	 * 3 - if the trails aren't done yet, then recalculate the timeslice by the formula: requested_time/current_trail +1 ,
+	 * 3 - if the trails aren't done yet, then recalculate the timeslice by the formula: requested_time/current_trail,
 	 *		and also insert the task into the back of the queue. dequeue_task(p, rq->short); enqueue_task(p, rq->short);
 	 *		goto out.
-	 * if it is overdue short - goto out  -fifo
+	 * if it is overdue short - goto out
 	 */
 		
 	
-	if ( p->policy == SCHED_SHORT){
-		if(!(p->is_overdue)){
-			if (!--p->time_slice){ // when the time slice is done
-				p->current_trail++;
-				if(p->current_trail == p->number_of_trails){
-					 dequeue_task(p, rq->short);
-					 anqueue_task(p, rq->short_overdue);
-					 set_tsk_need_resched(p);
-					 p->array = rq->short_overdue; //points to it's daddy
-					 p->is_overdue = 1;
-					 
-				}else{ // he is still shord and nice :)
-					p->time_slice = requested_time/(current_trail +1);
-					 set_tsk_need_resched(p);
-					dequeue_task(p, rq->short_q);
-					anqueue_task(p, rq->short_q);
-				}
-			}
-		}
-		goto out; 
-		
-	}
+	
+	
+	
 	
 	
 	/* Task might have expired already, but not scheduled off yet */
@@ -901,25 +882,11 @@ pick_next_task:
 	 * 	it is not true in the case of short processes. this assumption required me to. do not change the location without consult!
 	 * here next won't be automatically list_entry of queue if there is any short process, so we need to check:
 	 * if (rq->nr_running == rq->nr_overdue + nr->short->nr_active) // means there are no processes which are not short or overdue short
-	 *	- if there is a short process - it is next, use list_entry and calculate idx- otherwise the overdue process is next.
+	 *	- if there is a short process - it is next use list_entry and calculate idx- otherwise the overdue process is next.
+	 *  - else - there are other or tuntime processes:
+	 * if idx >= 100 && !list_empty(short) -> then next = list_entry(short(idx)->next, task_t, run_list);
 	 * goto switch_tsks.
 	 */
-	 
-	 if (rq->nr_running == (rq->nr_overdue + nr->short->nr_active)){ //this means there are short processes but no other or runtime
-		if (!list_empty(rq->short_q)){
-			array = rq->short_q;
-			idx = sched_find_first_bit(array->bitmap);
-			queue = array->queue + idx;
-			next = list_entry(queue->next, task_t, run_list);
-		} else{ // it means there are only short overdue processes 
-			array = rq->overdue;
-			queue = array->queue;
-			next = list_entry(queue->next, task_t, run_list);
-		}
-		goto switch_tasks;
-	 }
-	 
-	 /* */
 	
 	array = rq->active;
 	if (unlikely(!array->nr_active)) {
@@ -936,18 +903,6 @@ pick_next_task:
 	queue = array->queue + idx;
 	next = list_entry(queue->next, task_t, run_list);
 
-	/*
-	 * HW2
-	 * there are other or tuntime processes:
-	 * if idx >= 100 && !list_empty(short) -> then next = list_entry(short(idx)->next, task_t, run_list);
-	 */
-	if (idx >= 100 && !list_empty(rq->short_q){ // it means there are no runtime but there is short
-		array = rq->short_q;
-		idx = sched_find_first_bit(array->bitmap);
-		queue = array->queue + idx;
-		//next = list_entry(queue->next, task_t, run_list); // HW2 - todo: need to revive
-	}
-	
 switch_tasks:
 	prefetch(next);
 	clear_tsk_need_resched(prev);
@@ -1233,7 +1188,6 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 * 1 <= number_of_trails <= 50
 	 */
 
-	 
 
 	struct sched_param lp;
 	int retval = -EINVAL;

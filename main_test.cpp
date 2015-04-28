@@ -100,8 +100,8 @@ void handle_input(pid_t first_child) {
     map<string,string> parent;
     map<string,pid_t> zombies;
     map<string,int> policies;
-    policies["SCHED_SHORT"] = SCHED_SHORT;
-    policies["SCHED_OTHER"] = SCHED_OTHER;
+    policies["SHORT"] = SCHED_SHORT;
+    policies["OTHER"] = SCHED_OTHER;
     m["main"]=first_child;
     string command, arg1, arg2;
     while (cin>>command) {

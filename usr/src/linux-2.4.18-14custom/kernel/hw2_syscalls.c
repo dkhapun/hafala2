@@ -5,7 +5,6 @@
 
 //The wrapper will return 1 if the given process is a SHORT-process, or 0 if it is
 //already overdue.
-
 asmlinkage int sys_is_SHORT(int pid) {
 
 	task_t *my_task = find_task_by_pid( pid); 
