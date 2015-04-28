@@ -262,7 +262,7 @@ static inline void activate_task(task_t *p, runqueue_t *rq)
 	unsigned long sleep_time = jiffies - p->sleep_timestamp;
 	prio_array_t *array = rq->active;
 
-	if (!rt_task(p) && sleep_time) {
+	if (!rt_task(p) && sleep_time ) {
 		/*
 		 * This code gives a bonus to interactive tasks. We update
 		 * an 'average sleep time' value here, based on
@@ -275,6 +275,7 @@ static inline void activate_task(task_t *p, runqueue_t *rq)
 			p->sleep_avg = MAX_SLEEP_AVG;
 		p->prio = effective_prio(p);
 	}
+
 	enqueue_task(p, array);
 	rq->nr_running++;
 }
@@ -905,6 +906,9 @@ pick_next_task:
 	 * goto switch_tsks.
 	 */
 	 
+	 
+	 // TODO : CHECK ALSO FROM EXPIERED
+	 
 	 if (rq->nr_running == (rq->nr_overdue + nr->short->nr_active)){ //this means there are short processes but no other or runtime
 		if (!list_empty(rq->short_q)){
 			array = rq->short_q;
@@ -1223,18 +1227,6 @@ static inline task_t *find_process_by_pid(pid_t pid)
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
 
-	/*
-	 * HW2
-	 * the kind programmers of linux didn't think anybody would ever want to add another policy...
-	 * so there is no switch case for policies, and we will have to insert all of our code in the beginning, because later on it is assumed there are only two -
-	 * SCHED_OTHER and runtime. structural changes are needed (transfer process from active or expired to short and update array field)
-	 * also check the boundaries of the parameters:
-	 * 1 <= requested_time <= 5000
-	 * 1 <= number_of_trails <= 50
-	 */
-
-	 
-
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1255,17 +1247,62 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	read_lock_irq(&tasklist_lock);
 
 	p = find_process_by_pid(pid);
+	
+	/* HW2 - check the boundaries of the parameters:
+	 * 1 <= requested_time <= 5000
+	 * 1 <= number_of_trails <= 50
+	 */
+	 
+	 if( policy == SCHED_SHORT ){
+		if(param->requested_time > 5000 || param->requested_time < 1 || 
+		param->number_of_trails < 1 || param->number_of_trails > 50){
+			return -EINVAL;
+		}
+
+	 }
+	 
+	 /****/
 
 	retval = -ESRCH;
 	if (!p)
 		goto out_unlock_tasklist;
 
+		
 	/*
 	 * To be able to change p->policy safely, the apropriate
 	 * runqueue lock must be held.
 	 */
 	rq = task_rq_lock(p, &flags);
-
+	
+	
+	/*
+	 * HW2
+	 * the kind programmers of linux didn't think anybody would ever want to add another policy...
+	 * so there is no switch case for policies, and we will have to insert all of our code in the beginning, because later on it is assumed there are only two -
+	 * SCHED_OTHER and runtime. structural changes are needed (transfer process from active or expired to short and update array field)
+	 */
+	 	
+	 
+	 if (p->policy == SCHED_SHORT) { // I DONT NEED TO BE CHANGE
+		goto out_unlock;
+	 }
+	 //HERE I AM NOT SHORT
+	 if(policy == SCHED_SHORT ){
+		if ( p->policy != SCHED_OTHER){
+			goto out_unlock;
+		}else{ // need to be changed from other to short
+			p->policy = policy;
+			if(p->array){
+				dequeue_task(p,p->array);
+			}
+			enqueue_task(p,rq->short_q);
+		}
+		
+		goto out_unlock;
+	 }
+	 
+	 /**/
+	
 	if (policy < 0)
 		policy = p->policy;
 	else {
