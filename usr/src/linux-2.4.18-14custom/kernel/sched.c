@@ -259,6 +259,9 @@ static inline int effective_prio(task_t *p)
 
 static inline void activate_task(task_t *p, runqueue_t *rq)
 {
+
+// HW2 : TODO - need to take care of short as well
+
 	unsigned long sleep_time = jiffies - p->sleep_timestamp;
 	prio_array_t *array = rq->active;
 
@@ -355,6 +358,7 @@ void kick_if_running(task_t * p)
  */
 static int try_to_wake_up(task_t * p, int sync)
 {
+/* HW2 - take care of a short case - TODO */
 	unsigned long flags;
 	int success = 0;
 	long old_state;
@@ -764,17 +768,17 @@ void scheduler_tick(int user_tick, int system)
 			if (!--p->time_slice){ // when the time slice is done
 				p->current_trail++;
 				if(p->current_trail == p->number_of_trails){
-					 dequeue_task(p, rq->short);
-					 anqueue_task(p, rq->short_overdue);
+					 dequeue_task(p, rq->short_q);
+					 enqueue_task(p, rq->overdue);
 					 set_tsk_need_resched(p);
-					 p->array = rq->short_overdue; //points to it's daddy
+					 p->array = rq->overdue; //points to it's daddy
 					 p->is_overdue = 1;
 					 
 				}else{ // he is still shord and nice :)
-					p->time_slice = requested_time/(current_trail +1);
+					p->time_slice = p->requested_time/(p->current_trail +1);
 					 set_tsk_need_resched(p);
 					dequeue_task(p, rq->short_q);
-					anqueue_task(p, rq->short_q);
+					enqueue_task(p, rq->short_q);
 				}
 			}
 		}
@@ -901,15 +905,15 @@ pick_next_task:
 	 * notice! we will handle short process here, because after this line, it is assumed that a process which isn't active - is expired,
 	 * 	it is not true in the case of short processes. this assumption required me to. do not change the location without consult!
 	 * here next won't be automatically list_entry of queue if there is any short process, so we need to check:
-	 * if (rq->nr_running == rq->nr_overdue + nr->short->nr_active) // means there are no processes which are not short or overdue short
+	 * if (rq->nr_running == rq->rq_overdue + nr->short->nr_active) // means there are no processes which are not short or overdue short
 	 *	- if there is a short process - it is next, use list_entry and calculate idx- otherwise the overdue process is next.
 	 * goto switch_tsks.
 	 */
 	 
 	 
-	 // TODO : CHECK ALSO FROM EXPIERED
-	 
-	 if (rq->nr_running == (rq->nr_overdue + nr->short->nr_active)){ //this means there are short processes but no other or runtime
+	
+	/* 
+	 if (rq->nr_running == (rq->overdue->nr_active + rq->short_q->nr_active)){ //this means there are short processes but no other or runtime
 		if (!list_empty(rq->short_q)){
 			array = rq->short_q;
 			idx = sched_find_first_bit(array->bitmap);
@@ -922,35 +926,70 @@ pick_next_task:
 		}
 		goto switch_tasks;
 	 }
-	 
+	 */
 	 /* */
 	
 	array = rq->active;
 	if (unlikely(!array->nr_active)) {
+	/*
 		/*
 		 * Switch the active and expired arrays.
 		 */
+		 
 		rq->active = rq->expired;
 		rq->expired = array;
 		array = rq->active;
 		rq->expired_timestamp = 0;
 	}
-
+/*
 	idx = sched_find_first_bit(array->bitmap);
 	queue = array->queue + idx;
-	next = list_entry(queue->next, task_t, run_list);
-
+	
+*/
 	/*
 	 * HW2
-	 * there are other or tuntime processes:
+	 * there are other or real time processes:
 	 * if idx >= 100 && !list_empty(short) -> then next = list_entry(short(idx)->next, task_t, run_list);
 	 */
-	if (idx >= 100 && !list_empty(rq->short_q){ // it means there are no runtime but there is short
+	
+	/* 
+	if (idx >= 100 && !list_empty(rq->short_q){ // it means there are no real time but there is short
 		array = rq->short_q;
 		idx = sched_find_first_bit(array->bitmap);
 		queue = array->queue + idx;
 		//next = list_entry(queue->next, task_t, run_list); // HW2 - todo: need to revive
 	}
+	
+	*/
+	
+	int idx_active = (rq->active->nr_active > 0)? sched_find_first_bit(rq->active->bitmap) : -1 ;
+	int idx_expired = (rq->expired->nr_active > 0)? sched_find_first_bit(rq->expired->bitmap) : -1 ;
+	int idx_short = (rq->short_q->nr_active > 0)? sched_find_first_bit(rq->short_q->bitmap) : -1 ;
+	int idx_overdue = (rq->overdue->nr_active > 0)? sched_find_first_bit(rq->overdue->bitmap) : -1 ;
+	
+	if ( idx_active < 100 && idx_active >= 0 ){
+		//real time
+		queue = rq->active->queue + idx_active;
+	
+	}else if ( idx_expired < 100 && idx_expired >= 0 ){
+		// real time expired
+		queue = rq->expired->queue + idx_expired;
+	}else if ( idx_active >= 100){
+		//other active
+		queue = rq->active->queue + idx_active;
+	}else if( idx_expired  >=100 ){
+		//other expired
+		queue = rq->expired->queue + idx_expired;
+	}else if ( idx_short >= 0 ){ 
+		// short
+		queue = rq->short_q->queue + idx_short;
+	}else if ( idx_overdue >= 0 ){
+		//overdue
+		queue = rq->overdue->queue + idx_overdue;
+	}
+	
+	next = list_entry(queue->next, task_t, run_list);
+
 	
 switch_tasks:
 	prefetch(next);
@@ -1385,7 +1424,7 @@ out_nounlock:
 asmlinkage long sys_sched_getparam(pid_t pid, struct sched_param *param)
 {
 	/*
-	 * HW2
+	 * HW2 - TODO
 	 * handle two more fields: number_of_trails, requested_time.
 	 */
 	struct sched_param lp;
