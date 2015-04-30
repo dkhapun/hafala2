@@ -49,7 +49,7 @@ struct sched_param
   {
     int __sched_priority;
 	int requested_time;
-	int number_of_trails;
+	int number_of_trials;
   };
 
 __BEGIN_DECLS
@@ -72,7 +72,7 @@ struct __sched_param
   {
     int __sched_priority;
 	int requested_time;
-	int number_of_trails;
+	int number_of_trials;
   };
 # undef __need_schedparam
 #endif

@@ -786,9 +786,9 @@ void scheduler_tick(int user_tick, int system)
 	 * here insert a check whether the current task is SHORT
 	 * if it is not overdue short, and the quantum have expired (if (!--p->time_slice)) do:
 	 * 1 - increase current_trial
-	 * 2 - if the trails have been exhausted (p->current_trail == p->number_of_trails), 
+	 * 2 - if the trials have been exhausted (p->current_trial == p->number_of_trials), 
 	 *		call dequeue_task(p, rq->short), anqueue_task(p, rq->short_overdue), set_tsk_need_resched(p), enqueue_task to short_overdue and update array field of task.
-	 * 3 - if the trails aren't done yet, then recalculate the timeslice by the formula: requested_time/current_trail +1 ,
+	 * 3 - if the trials aren't done yet, then recalculate the timeslice by the formula: requested_time/current_trial +1 ,
 	 *		and also insert the task into the back of the queue. dequeue_task(p, rq->short); enqueue_task(p, rq->short);
 	 *		goto out.
 	 * if it is overdue short - goto out  -fifo
@@ -798,8 +798,8 @@ void scheduler_tick(int user_tick, int system)
 	if ( p->policy == SCHED_SHORT){
 		if(!(p->is_overdue)){
 			if (!--p->time_slice){ // when the time slice is done
-				p->current_trail++;
-				if(p->current_trail == p->number_of_trails){
+				p->current_trial++;
+				if(p->current_trial == p->number_of_trials){
 					 dequeue_task(p, rq->short_q);
 					 enqueue_task(p, rq->overdue);
 					 p->array = rq->overdue; //points to it's daddy
@@ -808,7 +808,7 @@ void scheduler_tick(int user_tick, int system)
 					 
 					 
 				}else{ // he is still shord and nice :)
-					p->time_slice = p->requested_time/(p->current_trail +1);
+					p->time_slice = p->requested_time/(p->current_trial +1);
 					dequeue_task(p, rq->short_q);
 					enqueue_task(p, rq->short_q);
 					set_tsk_need_resched(p);
@@ -1323,12 +1323,12 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	
 	/* HW2 - check the boundaries of the parameters:
 	 * 1 <= requested_time <= 5000
-	 * 1 <= number_of_trails <= 50
+	 * 1 <= number_of_trials <= 50
 	 */
 	 
 	 if( policy == SCHED_SHORT ){
 		if(param->requested_time > 5000 || param->requested_time < 1 || 
-		param->number_of_trails < 1 || param->number_of_trails > 50){
+		param->number_of_trials < 1 || param->number_of_trials > 50){
 			return -EINVAL;
 		}
 	 }
@@ -1473,11 +1473,11 @@ asmlinkage long sys_sched_getparam(pid_t pid, struct sched_param *param)
 	lp.sched_priority = p->rt_priority;
 	/*
 	 * HW2
-	 * handle two more fields: number_of_trails, requested_time.
+	 * handle two more fields: number_of_trials, requested_time.
 	 */
 	
 	lp.requested_time = p->requested_time;
-	lp.number_of_trails = p->number_of_trails;
+	lp.number_of_trials = p->number_of_trials;
 	read_unlock(&tasklist_lock);
 
 	/*

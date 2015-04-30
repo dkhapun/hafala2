@@ -40,9 +40,9 @@ asmlinkage int sys_remaining_time(int pid) {
 	return my_task->time_slice;//when it is short returns its left time in slice
 }
 
-//The wrapper will return the number of trails left for the SHORT process, for
+//The wrapper will return the number of trials left for the SHORT process, for
 //overdue process it should return 0.
-asmlinkage int sys_remaining_trails(int pid) {
+asmlinkage int sys_remaining_trials(int pid) {
 
 	task_t *my_task = find_task_by_pid(pid); 
 	if (my_task == NULL){
@@ -52,7 +52,7 @@ asmlinkage int sys_remaining_trails(int pid) {
 		if (my_task->is_overdue){
 			return 0;
 		}
-		return (my_task->number_of_trails) - (my_task->current_trail);
+		return (my_task->number_of_trials) - (my_task->current_trial);
 	}
 	
 	return -EINVAL;

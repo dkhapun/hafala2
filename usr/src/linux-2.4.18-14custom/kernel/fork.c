@@ -729,6 +729,24 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	p->first_time_slice = 1;
 	current->time_slice >>= 1;
 	p->sleep_timestamp = jiffies;
+	
+	/*
+	 * HW2
+	 * initial child trials and remaining time
+	 */
+	if (current->policy == SCHED_SHORT){
+		p->policy = SCHED_SHORT;
+		if (!current->is_overdue){
+			p->number_of_trials = (current->number_of_trials + 1) >> 1;
+			current->number_of_trials >>= 1;
+			p->is_overdue = 0;
+		} else {
+			p->is_overdue = 1;
+		}
+		
+	}
+	
+	
 	if (!current->time_slice) {
 		/*
 		 * This case is rare, it happens when the parent has only
