@@ -48,7 +48,7 @@ int main(int argc, char const *argv[])
 
 			cout << "test pid:" << cpid << endl;
 			cout << "================" << endl;
-			
+
 			res = is_SHORT(cpid);
 			cout << "is_SHORT res=" << res << ";errno="<< errno << endl;
 			
@@ -59,26 +59,18 @@ int main(int argc, char const *argv[])
 			cout << "remaining_trails res=" << res << ";errno="<< errno << endl;
 			
 			fibonaci(tt.fnum);
-			break;
+			return;
 		}else if(tt.pid > 0)
 		{
 			tasks.push(tt);
 		}
 	}
-
-	cout << "test pid:" << pid << endl;
-	res = is_SHORT(pid);
-	cout << "is_SHORT res=" << res << ";errno="<< errno << endl;
-	res = remaining_time(pid);
-	cout << "remaining_time res=" << res << ";errno="<< errno << endl;
-	res = remaining_trails(pid);
-	cout << "remaining_trails res=" << res << ";errno="<< errno << endl;
-
-	sched_param sp = {0};
-	sp.sched_priority = 0;
-	sp.requested_time = 0;
-	sp.number_of_trails = 0;
-	res = sched_setscheduler(pid, SCHED_SHORT, &sp);
+	int status = 0;
+	int res = 0;
+	for(int i = 0; i < tasks.size(); i++)
+	{
+		res = waitpid(tasks[i].pid, &status, 0);
+	}
 
 	cout << "remaining_trails res=" << res << ";errno="<< errno << endl;
 	return 0;
