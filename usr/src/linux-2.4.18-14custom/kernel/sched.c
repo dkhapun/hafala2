@@ -126,6 +126,7 @@ struct prio_array {
 	list_t queue[MAX_PRIO];
 };
 
+#define SWITCH_INFO_ARRAY_SIZE 150
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -144,12 +145,36 @@ struct runqueue {
 	list_t migration_queue;
 	/*
 	 * HW2
-	 * add short_q, overdue
+	 * add short_q, overdue and statistics struct for test
 	 */
 	 prio_array_t *short_q, *overdue;
-	 switch_info_t s_info;
+	 switch_info_t switch_info_arr[SWITCH_INFO_ARRAY_SIZE];
+	 int info_start;
+	 int info_end;
+	 int rec_switching_remaining;
+
 } ____cacheline_aligned;
 
+
+/*
+ * HW2
+ * switch info setup function
+*/
+void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int previous_policy, int next_policy, unsigned long time, int reason)
+{
+	int next_info = rq->info_end;
+	rq->switch_info_arr[next_info].previous_pid = previous_pid;
+	rq->switch_info_arr[next_info].next_pid = next_pid;
+	rq->switch_info_arr[next_info].previous_policy = previous_policy;
+	rq->switch_info_arr[next_info].next_policy = next_policy;
+	rq->switch_info_arr[next_info].time = time;
+	rq->switch_info_arr[next_info].reason = reason;
+	next_info = (next_info + 1) % SWITCH_INFO_ARRAY_SIZE;
+	if(next_info == rq->info_start)
+		rq->info_start = (rq->info_start + 1) % SWITCH_INFO_ARRAY_SIZE;
+
+}	
+ 	
 static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
 
 #define cpu_rq(cpu)		(runqueues + (cpu))
@@ -1781,7 +1806,10 @@ void __init sched_init(void)
 		/* HW2 adding initialize rq's */
 		rq->short_q = rq->arrays + 2;
 		rq->overdue = rq->arrays + 3;
-		
+		rq->info_start = 0;
+		rq->info_end = 0;
+		rq->rec_switching_remaining = 0;
+
 		spin_lock_init(&rq->lock);
 		INIT_LIST_HEAD(&rq->migration_queue);
 
