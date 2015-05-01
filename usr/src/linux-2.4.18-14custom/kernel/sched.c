@@ -147,6 +147,7 @@ struct runqueue {
 	 * add short_q, overdue
 	 */
 	 prio_array_t *short_q, *overdue;
+	 switch_info_t s_info;
 } ____cacheline_aligned;
 
 static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;

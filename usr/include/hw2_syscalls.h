@@ -75,7 +75,7 @@ int get_scheduling_statistic(struct switch_info * info) {
 		"int $0x80;"
 		"movl %%eax,%0"
 		: "=m" (__res)
-		: "m" (pid)
+		: "m" (info)
 		: "%eax","%ebx"
 	);
 	if ((unsigned long)(__res) >= (unsigned long)(-125)) {

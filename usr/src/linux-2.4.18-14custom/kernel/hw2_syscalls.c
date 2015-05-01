@@ -3,16 +3,6 @@
 #include <asm/current.h>
 #include <asm/errno.h>
 
-typedef struct switch_info
-{
-	int previous_pid;
-	int next_pid;
-	int previous_policy;
-	int next_policy;
-	unsigned long time;
-	int reason;
-} switch_info_t;
-
 //The wrapper will return 1 if the given process is a SHORT-process, or 0 if it is
 //already overdue.
 asmlinkage int sys_is_SHORT(int pid) {
@@ -66,3 +56,18 @@ asmlinkage int sys_remaining_trials(int pid) {
 	
 	return -EINVAL;
 }
+
+//The wrapper will return the number of trials left for the SHORT process, for
+//overdue process it should return 0.
+asmlinkage int sys_get_scheduling_statistic(struct switch_info * info) 
+{
+	task_t *my_task = current;
+	if (my_task == NULL)
+	{
+		return -1; // in case of error
+	}
+	return 1;
+	
+	return -EINVAL;
+}
+

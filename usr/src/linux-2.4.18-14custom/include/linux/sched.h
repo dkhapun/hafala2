@@ -135,6 +135,16 @@ struct sched_param {
 	int number_of_trials;
 };
 
+typedef struct switch_info
+{
+	int previous_pid;
+	int next_pid;
+	int previous_policy;
+	int next_policy;
+	unsigned long time;
+	int reason;
+} switch_info_t;
+
 struct completion;
 
 #ifdef __KERNEL__
