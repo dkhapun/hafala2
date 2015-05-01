@@ -127,12 +127,12 @@ extern unsigned long nr_uninterruptible(void);
 
 /*
  * HW2
- * add two fields: requested_time, number_of_trails.
+ * add two fields: requested_time, number_of_trials.
  */
 struct sched_param {
 	int sched_priority;
 	int requested_time;
-	int number_of_trails;
+	int number_of_trials;
 };
 
 struct completion;
@@ -465,11 +465,11 @@ struct task_struct {
 	
 	/*
 	 * HW2
-	 * add four fields: requested_time, number_of_trails, current_trail, isOverdue.
+	 * add four fields: requested_time, number_of_trials, current_trial, isOverdue.
 	 */
 	 int requested_time;
-	 int number_of_trails;
-	 int current_trail; // starting from 0
+	 int number_of_trials;
+	 int current_trial; // starting from 0
 	 int is_overdue; //if 0 - no , if 1 - yes
 };
 
@@ -577,8 +577,8 @@ extern struct exec_domain	default_exec_domain;
     alloc_lock:		SPIN_LOCK_UNLOCKED,				\
     journal_info:	NULL,						\
 	requested_time:	0,							\
-	number_of_trails:	0,						\
-	current_trail:	0,				\
+	number_of_trials:	0,						\
+	current_trial:	0,				\
 	is_overdue:	0,						}
 	/*
 	 * HW2

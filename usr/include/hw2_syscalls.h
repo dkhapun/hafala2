@@ -39,7 +39,7 @@ int remaining_time(int pid) {
 	return (int)(__res);
 }
 
-int remaining_trails(int pid) {
+int remaining_trials(int pid) {
 	long __res;
 	__asm__ volatile (
 		"movl $245, %%eax;"
