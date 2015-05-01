@@ -737,8 +737,10 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	if (current->policy == SCHED_SHORT){
 		p->policy = SCHED_SHORT;
 		if (!current->is_overdue){
-			p->number_of_trials = (current->number_of_trials + 1) >> 1;
+			// TODO - does a father became short-overdue because of forking?
+			p->number_of_trials = (current->number_of_trials - current->current_trial + 1) >> 1;
 			current->number_of_trials >>= 1;
+			p->current_trial = 0;
 			p->is_overdue = 0;
 		} else {
 			p->is_overdue = 1;

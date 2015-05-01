@@ -756,8 +756,30 @@ void scheduler_tick(int user_tick, int system)
 	 *		goto out.
 	 * if it is overdue short - goto out
 	 */
-		
 	
+	
+	if ( p->policy == SCHED_SHORT){
+		if (!(p->is_overdue)){
+			if (!--p->time_slice){ // when the time slice is done
+				p->current_trial++;
+				if (p->current_trial == p->number_of_trials){
+					 dequeue_task(p, rq->short_q);
+					 enqueue_task(p, rq->overdue);
+					 p->array = rq->overdue; //points to it's daddy
+					 p->is_overdue = 1;
+					 p->first_time_slice = 0;
+					 
+				} else { // he is still shord and nice :)
+					p->time_slice = ((p->requested_time / 1000) * HZ)/(p->current_trial +1);
+					p->first_time_slice = 0;
+					dequeue_task(p, rq->short_q);
+					enqueue_task(p, rq->short_q);
+				}
+				set_tsk_need_resched(p);
+			}
+		}
+		goto out; 
+	}	
 	
 	
 	
@@ -1177,6 +1199,7 @@ static inline task_t *find_process_by_pid(pid_t pid)
 
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
+	// TODO TODO !!!! there is separate handling of parameters setting - changing the policy in this function and changing parameters in sched_setschedilr...
 
 	/*
 	 * HW2
@@ -1214,12 +1237,59 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if (!p)
 		goto out_unlock_tasklist;
 
+	/* HW2 - check the boundaries of the parameters:
+	 * 1 <= requested_time <= 5000
+	 * 1 <= number_of_trials <= 50
+	 */
+	 
+	 if( policy == SCHED_SHORT ){
+		if(param->requested_time > 5000 || param->requested_time < 1 || 
+		param->number_of_trials < 1 || param->number_of_trials > 50){
+			return -EINVAL;
+		}
+	 }
+	 
+	 /****/
+	retval = -ESRCH;
+	if (!p)
+		goto out_unlock_tasklist;
 	/*
 	 * To be able to change p->policy safely, the apropriate
 	 * runqueue lock must be held.
 	 */
 	rq = task_rq_lock(p, &flags);
 
+	/*
+	 * HW2
+	 * the kind programmers of linux didn't think anybody would ever want to add another policy...
+	 * so there is no switch case for policies, and we will have to insert all of our code in the beginning, because later on it is assumed there are only two -
+	 * SCHED_OTHER and runtime. structural changes are needed (transfer process from active or expired to short and update array field)
+	 */
+	 
+	 if (p->policy == SCHED_SHORT) {
+		p->requested_time = param->requested_time;
+		// TODO - ask whether we need to change requested time
+		goto out_unlock;
+	 }
+	 //HERE I AM NOT SHORT
+	 if(policy == SCHED_SHORT ){
+		if ( p->policy != SCHED_OTHER){
+			//goto out_unlock;
+			task_rq_unlock(rq, &flags);
+			return -EINVAL;
+		}else{ // need to be changed from other to short
+			p->policy = policy;
+			if(p->array){
+				dequeue_task(p,p->array);
+			}
+			enqueue_task(p,rq->short_q);
+			p->array = rq->short_q;
+		}
+		
+		goto out_unlock;
+	 }
+	 
+	 /**/	
 	if (policy < 0)
 		policy = p->policy;
 	else {
@@ -1259,7 +1329,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		p->prio = p->static_prio;
 	if (array)
 		activate_task(p, task_rq(p));
-
+//TODO - do we need to set_need_resched ourself?
 out_unlock:
 	task_rq_unlock(rq, &flags);
 out_unlock_tasklist:
@@ -1318,6 +1388,13 @@ asmlinkage long sys_sched_getparam(pid_t pid, struct sched_param *param)
 	if (!p)
 		goto out_unlock;
 	lp.sched_priority = p->rt_priority;
+	/*
+	 * HW2
+	 * handle two more fields: number_of_trials, requested_time.
+	 */
+	
+	lp.requested_time = p->requested_time;
+	lp.number_of_trials = p->number_of_trials - p->current_trial;
 	read_unlock(&tasklist_lock);
 
 	/*
@@ -1481,7 +1558,14 @@ asmlinkage long sys_sched_get_priority_max(int policy)
 	case SCHED_OTHER:
 		ret = 0;
 		break;
+	case SCHED_SHORT:
+		ret = 0;
+		break;
 	}
+	/*
+	 * HW2
+	 * handle SHORT case
+	 */
 	return ret;
 }
 
@@ -1496,7 +1580,15 @@ asmlinkage long sys_sched_get_priority_min(int policy)
 		break;
 	case SCHED_OTHER:
 		ret = 0;
+	case SCHED_SHORT:
+		ret = 0;
+		break;
 	}
+	/*
+	 * HW2
+	 * handle SHORT case
+	 */
+	
 	return ret;
 }
 
