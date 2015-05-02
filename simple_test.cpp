@@ -11,13 +11,16 @@ int main(int argc, char const *argv[])
 {
 	int pid = getpid();
 	int res = 0;
+	struct switch_info info = {0};
 	cout << "test pid:" << pid << endl;
 	res = is_SHORT(pid);
 	cout << "is_SHORT res=" << res << ";errno="<< errno << endl;
 	res = remaining_time(pid);
 	cout << "remaining_time res=" << res << ";errno="<< errno << endl;
-	res = remaining_trails(pid);
+	res = remaining_trials(pid);
 	cout << "remaining_trails res=" << res << ";errno="<< errno << endl;
+	res = get_scheduling_statistic( &info);
+	cout << "get_scheduling_statistic res=" << res << ";errno="<< errno << endl;
 
 	sched_param sp = {0};
 	sp.sched_priority = 0;

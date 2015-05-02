@@ -1,11 +1,12 @@
 #include <sys/types.h>
 #include <sched.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
 #include <hw2_syscalls.h>
 #include <iostream>
 #include <utility>
-
+#include <vector>
 using namespace std;
 
 int fibonaci(int n)
@@ -27,7 +28,7 @@ int main(int argc, char const *argv[])
 	int pid = getpid();
 	int res = 0;
 	if((argc - 1) % 2 != 0)
-		return;
+		return -1;
 
 	int tasks_num = (argc - 1) / 2;
 	vector<test_task> tasks;
@@ -50,28 +51,30 @@ int main(int argc, char const *argv[])
 			cout << "================" << endl;
 
 			res = is_SHORT(cpid);
-			cout << "is_SHORT res=" << res << ";errno="<< errno << endl;
+			cout << "is_SHORT res=" << res << ";errno="<< errno << ";pid=" << cpid << endl;
 			
 			res = remaining_time(cpid);
-			cout << "remaining_time res=" << res << ";errno="<< errno << endl;
+			cout << "remaining_time res=" << res << ";errno="<< errno << ";pid=" << cpid << endl;
 			
-			res = remaining_trails(cpid);
-			cout << "remaining_trails res=" << res << ";errno="<< errno << endl;
+			res = remaining_trials(cpid);
+			cout << "remaining_trails res=" << res << ";errno="<< errno << ";pid=" << cpid << endl;
 			
 			fibonaci(tt.fnum);
-			return;
+			return 0;
 		}else if(tt.pid > 0)
 		{
-			tasks.push(tt);
+			tasks.push_back(tt);
 		}
 	}
 	int status = 0;
-	int res = 0;
+	res = 0;
+	struct switch_info si;
 	for(int i = 0; i < tasks.size(); i++)
 	{
+		cout << "waiting for " << tasks[i].pid << endl;
 		res = waitpid(tasks[i].pid, &status, 0);
 	}
-
-	cout << "remaining_trails res=" << res << ";errno="<< errno << endl;
+	get_scheduling_statistic(&si);
+	cout << "get_scheduling_statistic res=" << res << ";errno=" << errno << endl;
 	return 0;
 }
