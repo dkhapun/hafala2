@@ -161,24 +161,6 @@ struct runqueue {
 } ____cacheline_aligned;
 
 
-/*
- * HW2
- * switch info setup function
-*/
-void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int previous_policy, int next_policy, unsigned long time, switch_reason reason)
-{
-	int next_info = rq->info_end;
-	rq->switch_info_arr[next_info].previous_pid = previous_pid;
-	rq->switch_info_arr[next_info].next_pid = next_pid;
-	rq->switch_info_arr[next_info].previous_policy = previous_policy;
-	rq->switch_info_arr[next_info].next_policy = next_policy;
-	rq->switch_info_arr[next_info].time = time;
-	rq->switch_info_arr[next_info].reason = (int)reason;
-	next_info = (next_info + 1) % SWITCH_INFO_ARRAY_SIZE;
-	if(next_info == rq->info_start)
-		rq->info_start = (rq->info_start + 1) % SWITCH_INFO_ARRAY_SIZE;
-
-}	
  	
 static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
 
@@ -197,6 +179,38 @@ static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
 # define prepare_arch_switch(rq)	do { } while(0)
 # define finish_arch_switch(rq)		spin_unlock_irq(&(rq)->lock)
 #endif
+
+/*
+ * HW2
+ * switch info setup function
+*/
+void record_switch(switch_reason reason)
+{
+	struct runqueue* rq = this_rq();
+	int next_info = rq->info_end;
+	rq->switch_info_arr[next_info].reason = (int)reason;
+	if (reason == SR_TASK_CREATED || reason == SR_TASK_ENDED)
+		rq->rec_switching_remaining = 30;
+}
+
+void create_record(int previous_pid, int next_pid , int previous_policy, int next_policy){
+	
+	struct runqueue* rq = this_rq();
+	int next_info = rq->info_end;
+	rq->switch_info_arr[next_info].previous_pid = previous_pid;
+	rq->switch_info_arr[next_info].next_pid = next_pid;
+	rq->switch_info_arr[next_info].previous_policy = previous_policy;
+	rq->switch_info_arr[next_info].next_policy = next_policy;
+	rq->switch_info_arr[next_info].time = jiffies;
+	
+	if (--rq->rec_switching_remaining > 0){
+		int next_info = rq->info_end;
+		rq->info_end = (next_info + 1) % SWITCH_INFO_ARRAY_SIZE;
+		if(rq->info_end == rq->info_start)
+			rq->info_start = (rq->info_start + 1) % SWITCH_INFO_ARRAY_SIZE;
+	}
+}	
+
 
 int copy_switch_info_to_user(struct switch_info * usr)
 {
@@ -450,8 +464,11 @@ repeat_lock_task:
 		  * it may be possible that a short process has a lower priority than a real-time process - we don't wand a resched in this case
 		  * what should we do? TODO
 		  */ 
-		if (p->prio < rq->curr->prio)
+		if (p->prio < rq->curr->prio){
+			
+			record_switch(SR_HIGHIER_TASK_ACTIVE);
 			resched_task(rq->curr);
+		}
 		success = 1;
 	}
 	p->state = TASK_RUNNING;
@@ -845,12 +862,14 @@ void scheduler_tick(int user_tick, int system)
 					 enqueue_task(p, rq->overdue);
 					 p->array = rq->overdue; //points to it's daddy
 					 p->is_overdue = 1;
+					 record_switch(SR_SHORT_OVER);
 					 
 				} else { // he is still shord and nice :)
 					p->time_slice = SHORT_TIMESLICE(p);
 					p->first_time_slice = 0;
 					dequeue_task(p, rq->short_q);
 					enqueue_task(p, rq->short_q);
+					record_switch(SR_TIME_SLICE_OVER);
 				}
 				set_tsk_need_resched(p);
 			}
@@ -928,7 +947,7 @@ asmlinkage void schedule(void)
 	runqueue_t *rq;
 	prio_array_t *array;
 	list_t *queue;
-	int idx;
+	//int idx;
 
 	if (unlikely(in_interrupt()))
 		BUG();
@@ -1040,6 +1059,11 @@ switch_tasks:
 		rq->nr_switches++;
 		rq->curr = next;
 	
+		/*
+		 * HW2
+		 * create record in switch_info_arr
+		 */
+		create_record(prev->pid, next->pid, prev->policy, next->policy);
 		prepare_arch_switch(rq);
 		prev = context_switch(prev, next);
 		barrier();
@@ -1136,6 +1160,7 @@ void wait_for_completion(struct completion *x)
 		do {
 			__set_current_state(TASK_UNINTERRUPTIBLE);
 			spin_unlock_irq(&x->wait.lock);
+			record_switch(SR_SHORT_OVER);
 			schedule();
 			spin_lock_irq(&x->wait.lock);
 		} while (!x->done);
@@ -1696,6 +1721,7 @@ asmlinkage long sys_sched_yield(void)
 out_unlock:
 	spin_unlock(&rq->lock);
 
+	record_switch(SR_TASK_YIELDS);
 	schedule();
 
 	return 0;

@@ -528,6 +528,11 @@ fake_volatile:
 
 	tsk->exit_code = code;
 	exit_notify();
+	/*
+	 * HW2
+	 * insert record for exiting process.
+	 */
+	 record_switch(SR_TASK_ENDED);
 	schedule();
 	BUG();
 /*

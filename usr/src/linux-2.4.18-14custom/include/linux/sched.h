@@ -148,6 +148,8 @@ typedef struct switch_info
 } switch_info_t;
 #define SWITCH_INFO_ARRAY_SIZE 150
 
+extern void record_switch(switch_reason reason);
+
 extern int copy_switch_info_to_user(struct switch_info * usr);
 
 struct completion;

@@ -25,6 +25,17 @@ struct test_task
 	int fnum;
 };
 
+char* print_policy(int policy){
+	switch(policy){
+		case SCHED_OTHER: return "other"; break;
+		case SCHED_FIFO: return "real time FIFO"; break;
+		case SCHED_RR: return "real time RR"; break;
+		case SCHED_SHORT: return "short"; break;
+		default : return "unknown"; break;
+
+	}
+}
+
 void print_test_results(struct switch_info *si, int size, const vector<test_task>& tasks)
 {
 	cout << "Test Results:" << endl;
@@ -43,8 +54,8 @@ void print_test_results(struct switch_info *si, int size, const vector<test_task
 		if(si[i].previous_pid != -1)
 			cout << "|" << setw(14) << si[i].previous_pid <<
 			 	    "|" << setw(14) << si[i].next_pid <<
-			 	    "|" << setw(17) << si[i].previous_policy <<
-			 	    "|" << setw(14) << si[i].next_policy <<
+			 	    "|" << setw(17) << print_policy(si[i].previous_policy) <<
+			 	    "|" << setw(14) << print_policy(si[i].next_policy) <<
 			 	    "|" << setw(14) << si[i].time << 
 			 	    "|" << setw(20) << SWITCH_REASONS_STR[si[i].reason] << endl;
 	}

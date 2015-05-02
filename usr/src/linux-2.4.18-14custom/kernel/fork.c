@@ -745,7 +745,6 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 		} else {
 			p->is_overdue = 1;
 		}
-		
 	}
 	
 	
@@ -798,12 +797,18 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	++total_forks;
 	if (clone_flags & CLONE_VFORK)
 		wait_for_completion(&vfork);
-	else
+	else {
 		/*
 		 * Let the child process run first, to avoid most of the
 		 * COW overhead when the child exec()s afterwards.
 		 */
-		current->need_resched = 1;
+		 /*
+		  * HW2
+		  * insert a record of switch
+		  */
+		 record_switch(SR_TASK_CREATED);
+		 current->need_resched = 1;
+	}
 
 fork_out:
 	return retval;
