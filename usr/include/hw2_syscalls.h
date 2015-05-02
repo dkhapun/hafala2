@@ -66,7 +66,7 @@ static const char* SWITCH_REASONS_STR[7] =
 	"The previous task goes out for waiting.",
 	"A task with higher priority returns from waiting.",
 	"The time slice of the previous task has ended. "
-}
+};
 typedef struct switch_info
 {
 	int previous_pid;
