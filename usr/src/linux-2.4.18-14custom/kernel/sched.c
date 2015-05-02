@@ -160,7 +160,7 @@ struct runqueue {
  * HW2
  * switch info setup function
 */
-void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int previous_policy, int next_policy, unsigned long time, int reason)
+void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int previous_policy, int next_policy, unsigned long time, switch_reason reason)
 {
 	int next_info = rq->info_end;
 	rq->switch_info_arr[next_info].previous_pid = previous_pid;
@@ -168,7 +168,7 @@ void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int pre
 	rq->switch_info_arr[next_info].previous_policy = previous_policy;
 	rq->switch_info_arr[next_info].next_policy = next_policy;
 	rq->switch_info_arr[next_info].time = time;
-	rq->switch_info_arr[next_info].reason = reason;
+	rq->switch_info_arr[next_info].reason = (int)reason;
 	next_info = (next_info + 1) % SWITCH_INFO_ARRAY_SIZE;
 	if(next_info == rq->info_start)
 		rq->info_start = (rq->info_start + 1) % SWITCH_INFO_ARRAY_SIZE;
@@ -193,6 +193,13 @@ static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
 # define finish_arch_switch(rq)		spin_unlock_irq(&(rq)->lock)
 #endif
 
+static inline int copy_switch_info_to_user(struct switch_info * usr)
+{
+	if(!usr)
+		return -EFAULT;
+	int res = copy_to_user(usr, this_rq()->switch_info_arr, sizeof(struct switch_info)*SWITCH_INFO_ARRAY_SIZE) ? -EFAULT : 0;
+	return res;
+}
 /*
  * task_rq_lock - lock the runqueue a given task resides on and disable
  * interrupts.  Note the ordering: we can safely lookup the task_rq without

@@ -135,6 +135,10 @@ struct sched_param {
 	int number_of_trials;
 };
 
+typedef enum {SR_TASK_CREATED, SR_TASK_ENDED, SR_TASK_YIELDS, SR_SHORT_OVER, SR_PREV_TASK_WAIT, SR_HIGHIER_TASK_ACTIVE, SR_TIME_SLICE_OVER} switch_reason;
+
+
+
 typedef struct switch_info
 {
 	int previous_pid;
@@ -144,6 +148,8 @@ typedef struct switch_info
 	unsigned long time;
 	int reason;
 } switch_info_t;
+
+int copy_switch_info_to_user(struct switch_info * usr);
 
 struct completion;
 

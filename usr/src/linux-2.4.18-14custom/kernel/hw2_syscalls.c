@@ -3,6 +3,14 @@
 #include <asm/current.h>
 #include <asm/errno.h>
 
+#include <linux/mm.h>
+#include <linux/nmi.h>
+#include <linux/init.h>
+#include <linux/highmem.h>
+#include <linux/smp_lock.h>
+#include <asm/mmu_context.h>
+#include <linux/interrupt.h>
+
 //The wrapper will return 1 if the given process is a SHORT-process, or 0 if it is
 //already overdue.
 asmlinkage int sys_is_SHORT(int pid) {
@@ -62,6 +70,10 @@ asmlinkage int sys_remaining_trials(int pid) {
 asmlinkage int sys_get_scheduling_statistic(struct switch_info * info) 
 {
 	task_t *my_task = current;
+	if (!info)
+		return -EINVAL;
+
+	int retval = copy_switch_info_to_user(info) ? -EFAULT : 0;
 	if (my_task == NULL)
 	{
 		return -1; // in case of error

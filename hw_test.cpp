@@ -68,11 +68,12 @@ int main(int argc, char const *argv[])
 	}
 	int status = 0;
 	res = 0;
-	struct switch_info si;
+	struct switch_info[150] si = {0};
+
 	for(int i = 0; i < tasks.size(); i++)
 	{
 		cout << "waiting for " << tasks[i].pid << endl;
-		res = waitpid(tasks[i].pid, &status, 0);
+		res = waitpid(tasks[i].pid, status, 0);
 	}
 	get_scheduling_statistic(&si);
 	cout << "get_scheduling_statistic res=" << res << ";errno=" << errno << endl;

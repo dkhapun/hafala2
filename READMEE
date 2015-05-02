@@ -1,0 +1,8 @@
+last update
+- look at the latest commits for reference
+- wraper and syscall ready
+- UI works but doesn't pass basic test in file hw_test.cpp
+- currently worked on int copy_switch_info_to_user(struct switch_info * usr); to copy the array of switch_info from the rq
+  if you remove this call everything compiles and runs
+- added a function (not tested) to add records to the array record_switch
+- added an enum and enum strings for each switch reason
