@@ -1400,35 +1400,6 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 */
 	rq = task_rq_lock(p, &flags);
 
-	/*
-	 * HW2
-	 * the kind programmers of linux didn't think anybody would ever want to add another policy...
-	 * so there is no switch case for policies, and we will have to insert all of our code in the beginning, because later on it is assumed there are only two -
-	 * SCHED_OTHER and runtime. structural changes are needed (transfer process from active or expired to short and update array field)
-	 */
-	 
-	 /*if (p->policy == SCHED_SHORT) {
-		p->requested_time = param->requested_time;
-		goto out_unlock;
-	 }
-	 //HERE I AM NOT SHORT
-	 if( policy == SCHED_SHORT ){
-		if ( p->policy != SCHED_OTHER ){
-			//goto out_unlock;
-			task_rq_unlock(rq, &flags);
-			return -EINVAL;
-		} else { // need to be changed from other to short
-			p->policy = policy;
-			if(p->array){
-				dequeue_task(p,p->array);
-			}
-			enqueue_task(p,rq->short_q);
-			p->array = rq->short_q;
-		}
-		goto out_unlock;
-	 }*/
-	 
-	 /**/	
 	if (policy < 0)
 		policy = p->policy;
 	else {
@@ -1505,9 +1476,13 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		p->prio = p->static_prio;
 	}
 	
-	if (array)
+	if (array){
 		activate_task(p, task_rq(p));
-//TODO - do we need to set_need_resched ourself?
+	}
+	
+	if (p->policy == SCHED_SHORT){
+		set_tsk_need_resched(p);
+	}
 out_unlock:
 	task_rq_unlock(rq, &flags);
 out_unlock_tasklist:
