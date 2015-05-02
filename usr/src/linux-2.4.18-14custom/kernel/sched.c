@@ -126,7 +126,7 @@ struct prio_array {
 	list_t queue[MAX_PRIO];
 };
 
-#define SWITCH_INFO_ARRAY_SIZE 150
+//#define SWITCH_INFO_ARRAY_SIZE 150
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -193,7 +193,7 @@ static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
 # define finish_arch_switch(rq)		spin_unlock_irq(&(rq)->lock)
 #endif
 
-static inline int copy_switch_info_to_user(struct switch_info * usr)
+int copy_switch_info_to_user(struct switch_info * usr)
 {
 	if(!usr)
 		return -EFAULT;
@@ -1802,7 +1802,7 @@ extern void immediate_bh(void);
 void __init sched_init(void)
 {
 	runqueue_t *rq;
-	int i, j, k;
+	int i, j, k, l;
 
 	for (i = 0; i < NR_CPUS; i++) {
 		prio_array_t *array;
@@ -1816,7 +1816,15 @@ void __init sched_init(void)
 		rq->info_start = 0;
 		rq->info_end = 0;
 		rq->rec_switching_remaining = 0;
-
+		for(l = 0; l < SWITCH_INFO_ARRAY_SIZE; l++)
+		{
+			rq->switch_info_arr[l].previous_pid = -1;
+			rq->switch_info_arr[l].next_pid = -1;
+			rq->switch_info_arr[l].previous_policy = -1;
+			rq->switch_info_arr[l].next_policy = -1;
+			rq->switch_info_arr[l].time = -1;
+			rq->switch_info_arr[l].reason = -1;
+		}
 		spin_lock_init(&rq->lock);
 		INIT_LIST_HEAD(&rq->migration_queue);
 

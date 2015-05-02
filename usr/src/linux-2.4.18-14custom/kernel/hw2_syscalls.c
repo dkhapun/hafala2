@@ -76,10 +76,8 @@ asmlinkage int sys_get_scheduling_statistic(struct switch_info * info)
 	int retval = copy_switch_info_to_user(info) ? -EFAULT : 0;
 	if (my_task == NULL)
 	{
-		return -1; // in case of error
+		return -EINVAL; // in case of error
 	}
-	return 1;
-	
-	return -EINVAL;
+	return SWITCH_INFO_ARRAY_SIZE;
 }
 
