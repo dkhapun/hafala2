@@ -131,7 +131,7 @@ struct prio_array {
 	list_t queue[MAX_PRIO];
 };
 
-#define SWITCH_INFO_ARRAY_SIZE 150
+//#define SWITCH_INFO_ARRAY_SIZE 150
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -165,7 +165,7 @@ struct runqueue {
  * HW2
  * switch info setup function
 */
-void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int previous_policy, int next_policy, unsigned long time, int reason)
+void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int previous_policy, int next_policy, unsigned long time, switch_reason reason)
 {
 	int next_info = rq->info_end;
 	rq->switch_info_arr[next_info].previous_pid = previous_pid;
@@ -173,7 +173,7 @@ void record_switch(struct runqueue* rq,	int previous_pid, int next_pid , int pre
 	rq->switch_info_arr[next_info].previous_policy = previous_policy;
 	rq->switch_info_arr[next_info].next_policy = next_policy;
 	rq->switch_info_arr[next_info].time = time;
-	rq->switch_info_arr[next_info].reason = reason;
+	rq->switch_info_arr[next_info].reason = (int)reason;
 	next_info = (next_info + 1) % SWITCH_INFO_ARRAY_SIZE;
 	if(next_info == rq->info_start)
 		rq->info_start = (rq->info_start + 1) % SWITCH_INFO_ARRAY_SIZE;
@@ -198,6 +198,13 @@ static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
 # define finish_arch_switch(rq)		spin_unlock_irq(&(rq)->lock)
 #endif
 
+int copy_switch_info_to_user(struct switch_info * usr)
+{
+	if(!usr)
+		return -EFAULT;
+	int res = copy_to_user(usr, this_rq()->switch_info_arr, sizeof(struct switch_info)*SWITCH_INFO_ARRAY_SIZE) ? -EFAULT : 0;
+	return res;
+}
 /*
  * task_rq_lock - lock the runqueue a given task resides on and disable
  * interrupts.  Note the ordering: we can safely lookup the task_rq without
@@ -1918,7 +1925,7 @@ extern void immediate_bh(void);
 void __init sched_init(void)
 {
 	runqueue_t *rq;
-	int i, j, k;
+	int i, j, k, l;
 
 	for (i = 0; i < NR_CPUS; i++) {
 		prio_array_t *array;
@@ -1934,7 +1941,15 @@ void __init sched_init(void)
 		rq->info_start = 0;
 		rq->info_end = 0;
 		rq->rec_switching_remaining = 0;
-
+		for(l = 0; l < SWITCH_INFO_ARRAY_SIZE; l++)
+		{
+			rq->switch_info_arr[l].previous_pid = -1;
+			rq->switch_info_arr[l].next_pid = -1;
+			rq->switch_info_arr[l].previous_policy = -1;
+			rq->switch_info_arr[l].next_policy = -1;
+			rq->switch_info_arr[l].time = -1;
+			rq->switch_info_arr[l].reason = -1;
+		}
 		spin_lock_init(&rq->lock);
 		INIT_LIST_HEAD(&rq->migration_queue);
 
