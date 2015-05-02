@@ -475,7 +475,7 @@ struct task_struct {
 	
 	/*
 	 * HW2
-	 * add four fields: requested_time, number_of_trials, current_trial, isOverdue.
+	 * add four fields: requested_time, number_of_trials, current_trial, is_overdue.
 	 */
 	 int requested_time;
 	 int number_of_trials;

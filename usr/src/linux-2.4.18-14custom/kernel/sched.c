@@ -775,9 +775,9 @@ void scheduler_tick(int user_tick, int system)
 	 * here insert a check whether the current task is SHORT
 	 * if it is not overdue short, and the quantum have expired (if (!--p->time_slice)) do:
 	 * 1 - increase current_trial
-	 * 2 - if the trails have been exhausted (p->current_trail > p->number_of_trails), 
+	 * 2 - if the trials have been exhausted (p->current_trial > p->number_of_trials), 
 	 *		call dequeue_task(p, rq->short), anqueue_task(p, rq->short_overdue), set_tsk_need_resched(p), enqueue_task to short_overdue and update array field of task.
-	 * 3 - if the trails aren't done yet, then recalculate the timeslice by the formula: requested_time/current_trail,
+	 * 3 - if the trials aren't done yet, then recalculate the timeslice by the formula: requested_time/current_trial,
 	 *		and also insert the task into the back of the queue. dequeue_task(p, rq->short); enqueue_task(p, rq->short);
 	 *		goto out.
 	 * if it is overdue short - goto out
@@ -1234,7 +1234,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 * SCHED_OTHER and runtime. structural changes are needed (transfer process from active or expired to short and update array field)
 	 * also check the boundaries of the parameters:
 	 * 1 <= requested_time <= 5000
-	 * 1 <= number_of_trails <= 50
+	 * 1 <= number_of_trials <= 50
 	 */
 
 
@@ -1399,7 +1399,7 @@ asmlinkage long sys_sched_getparam(pid_t pid, struct sched_param *param)
 {
 	/*
 	 * HW2
-	 * handle two more fields: number_of_trails, requested_time.
+	 * handle two more fields: number_of_trials, requested_time.
 	 */
 	struct sched_param lp;
 	int retval = -EINVAL;
