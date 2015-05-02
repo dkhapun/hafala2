@@ -113,6 +113,11 @@
 	((MAX_TIMESLICE - MIN_TIMESLICE) * (MAX_PRIO-1-(p)->static_prio)/39))
 
 /*
+ * HW2
+ */
+#define SHORT_TIMESLICE(p) ((p->requested_time * HZ) / 1000) ? ((p->requested_time * HZ) / 1000) : 1
+	
+/*
  * These are the runqueue data structures:
  */
 
@@ -275,6 +280,19 @@ static inline int effective_prio(task_t *p)
 	bonus = MAX_USER_PRIO*PRIO_BONUS_RATIO*p->sleep_avg/MAX_SLEEP_AVG/100 -
 			MAX_USER_PRIO*PRIO_BONUS_RATIO/100/2;
 
+	/*
+	 * HW2
+	 * the dynamic priority of short is the static priority,
+	 * and the dynamic priority of overdue is 0.
+	 */
+	if (p->policy == SCHED_SHORT){
+		if (p->is_overdue){
+			bonus = p->static_prio;
+		} else{
+			bonus = 0;
+		}
+	}
+	
 	prio = p->static_prio - bonus;
 	if (prio < MAX_RT_PRIO)
 		prio = MAX_RT_PRIO;
@@ -285,9 +303,21 @@ static inline int effective_prio(task_t *p)
 
 static inline void activate_task(task_t *p, runqueue_t *rq)
 {
+	/* HW2 
+	 * take care of short and overdue as well
+	 */
+
 	unsigned long sleep_time = jiffies - p->sleep_timestamp;
 	prio_array_t *array = rq->active;
 
+	if (p->policy == SCHED_SHORT){
+		if (p->is_overdue){
+			array = rq->overdue;
+		} else {
+			array = rq->short_q;
+		}
+	}
+	
 	if (!rt_task(p) && sleep_time) {
 		/*
 		 * This code gives a bonus to interactive tasks. We update
@@ -407,6 +437,12 @@ repeat_lock_task:
 		/*
 		 * If sync is set, a resched_task() is a NOOP
 		 */
+		 
+		 /*
+		  * HW2
+		  * it may be possible that a short process has a lower priority than a real-time process - we don't wand a resched in this case
+		  * what should we do? TODO
+		  */ 
 		if (p->prio < rq->curr->prio)
 			resched_task(rq->curr);
 		success = 1;
@@ -645,6 +681,12 @@ static void load_balance(runqueue_t *this_rq, int idle)
 	else
 		array = busiest->active;
 
+	/*
+	 * HW2
+	 * if we need to take care of this function as well (many cpu's case)
+	 * than it won't work TODO - need to check if we need to change.
+	 */
+	 
 new_array:
 	/* Start searching at priority 0: */
 	idx = 0;
@@ -783,20 +825,22 @@ void scheduler_tick(int user_tick, int system)
 	 * if it is overdue short - goto out
 	 */
 	
-	
-	if ( p->policy == SCHED_SHORT){
+	printk("test sched.c 786: pid:\t%d\n", p->pid);
+	if ( p->policy == SCHED_SHORT ){
+		printk("test sched.c: time_slice:\t%d\ncurrent_trial:\t%d\n", p->time_slice, p->current_trial);
 		if (!(p->is_overdue)){
 			if (!--p->time_slice){ // when the time slice is done
 				p->current_trial++;
+				p->first_time_slice = 0;
 				if (p->current_trial == p->number_of_trials){
 					 dequeue_task(p, rq->short_q);
+					 p->prio = 0;
 					 enqueue_task(p, rq->overdue);
 					 p->array = rq->overdue; //points to it's daddy
 					 p->is_overdue = 1;
-					 p->first_time_slice = 0;
 					 
 				} else { // he is still shord and nice :)
-					p->time_slice = ((p->requested_time / 1000) * HZ)/(p->current_trial +1);
+					p->time_slice = SHORT_TIMESLICE(p);
 					p->first_time_slice = 0;
 					dequeue_task(p, rq->short_q);
 					enqueue_task(p, rq->short_q);
@@ -912,12 +956,6 @@ pick_next_task:
 			goto pick_next_task;
 #endif
 
-		/*
-		 * HW2
-		 * notice! we don't want to insert the check of overdue short process here, 
-		 * because it will require us not to include these processes in the count of nr_queue.
-		 * do not change without consult!
-		 */
 		next = rq->idle;
 		rq->expired_timestamp = 0;
 		goto switch_tasks;
@@ -929,7 +967,7 @@ pick_next_task:
 	 * notice! we will handle short process here, because after this line, it is assumed that a process which isn't active - is expired,
 	 * 	it is not true in the case of short processes. this assumption required me to. do not change the location without consult!
 	 * here next won't be automatically list_entry of queue if there is any short process, so we need to check:
-	 * if (rq->nr_running == rq->nr_overdue + nr->short->nr_active) // means there are no processes which are not short or overdue short
+	 * if (rq->nr_running == rq->rq_overdue + nr->short->nr_active) // means there are no processes which are not short or overdue short
 	 *	- if there is a short process - it is next use list_entry and calculate idx- otherwise the overdue process is next.
 	 *  - else - there are other or tuntime processes:
 	 * if idx >= 100 && !list_empty(short) -> then next = list_entry(short(idx)->next, task_t, run_list);
@@ -946,11 +984,47 @@ pick_next_task:
 		array = rq->active;
 		rq->expired_timestamp = 0;
 	}
-
+/*
 	idx = sched_find_first_bit(array->bitmap);
 	queue = array->queue + idx;
 	next = list_entry(queue->next, task_t, run_list);
+*/
 
+	/*
+	 * HW2
+	 * there are other or real time processes:
+	 * if idx >= 100 && !list_empty(short) -> then next = list_entry(short(idx)->next, task_t, run_list);
+	 */
+
+	int idx_active = (rq->active->nr_active > 0)? sched_find_first_bit(rq->active->bitmap) : -1 ;
+	int idx_expired = (rq->expired->nr_active > 0)? sched_find_first_bit(rq->expired->bitmap) : -1 ;
+	int idx_short = (rq->short_q->nr_active > 0)? sched_find_first_bit(rq->short_q->bitmap) : -1 ;
+	int idx_overdue = (rq->overdue->nr_active > 0)? sched_find_first_bit(rq->overdue->bitmap) : -1 ;
+	
+	if ( idx_active < 100 && idx_active >= 0 ){
+		//real time
+		queue = rq->active->queue + idx_active;
+	
+	}else if ( idx_expired < 100 && idx_expired >= 0 ){
+		// real time expired
+		queue = rq->expired->queue + idx_expired;
+	}else if ( idx_active >= 100){
+		//other active
+		queue = rq->active->queue + idx_active;
+	}else if( idx_expired  >=100 ){
+		//other expired
+		queue = rq->expired->queue + idx_expired;
+	}else if ( idx_short >= 0 ){ 
+		// short
+		queue = rq->short_q->queue + idx_short;
+	}else if ( idx_overdue >= 0 ){
+		//overdue
+		queue = rq->overdue->queue + idx_overdue;
+	}
+	
+	next = list_entry(queue->next, task_t, run_list);
+
+		
 switch_tasks:
 	prefetch(next);
 	clear_tsk_need_resched(prev);
@@ -1042,6 +1116,10 @@ void complete(struct completion *x)
 
 void wait_for_completion(struct completion *x)
 {
+	/*
+	 * HW2
+	 * TODO what happens when a process leaves runqueue?
+	 */
 	spin_lock_irq(&x->wait.lock);
 	if (!x->done) {
 		DECLARE_WAITQUEUE(wait, current);
@@ -1131,7 +1209,11 @@ void set_user_nice(task_t *p, long nice)
 	prio_array_t *array;
 	runqueue_t *rq;
 
-	if (TASK_NICE(p) == nice || nice < -20 || nice > 19)
+	/*
+	 * HW2
+	 * the user is forbidden from changing the priority short process. 
+	 */
+	if (TASK_NICE(p) == nice || nice < -20 || nice > 19 || p->policy == SCHED_SHORT)
 		return;
 	/*
 	 * We have to be careful, if called from sys_setpriority(),
@@ -1225,8 +1307,7 @@ static inline task_t *find_process_by_pid(pid_t pid)
 
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
-	// TODO TODO !!!! there is separate handling of parameters setting - changing the policy in this function and changing parameters in sched_setschedilr...
-
+	
 	/*
 	 * HW2
 	 * the kind programmers of linux didn't think anybody would ever want to add another policy...
@@ -1237,7 +1318,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 * 1 <= number_of_trials <= 50
 	 */
 
-
+	 
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1252,6 +1333,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if (copy_from_user(&lp, param, sizeof(struct sched_param)))
 		goto out_nounlock;
 
+	
 	/*
 	 * We play safe to avoid deadlocks.
 	 */
@@ -1263,6 +1345,8 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if (!p)
 		goto out_unlock_tasklist;
 
+	printk("test 1266 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
 	/* HW2 - check the boundaries of the parameters:
 	 * 1 <= requested_time <= 5000
 	 * 1 <= number_of_trials <= 50
@@ -1274,11 +1358,10 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 			return -EINVAL;
 		}
 	 }
-	 
+	 printk("test 1279 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
 	 /****/
-	retval = -ESRCH;
-	if (!p)
-		goto out_unlock_tasklist;
+	
 	/*
 	 * To be able to change p->policy safely, the apropriate
 	 * runqueue lock must be held.
@@ -1292,18 +1375,17 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 * SCHED_OTHER and runtime. structural changes are needed (transfer process from active or expired to short and update array field)
 	 */
 	 
-	 if (p->policy == SCHED_SHORT) {
+	 /*if (p->policy == SCHED_SHORT) {
 		p->requested_time = param->requested_time;
-		// TODO - ask whether we need to change requested time
 		goto out_unlock;
 	 }
 	 //HERE I AM NOT SHORT
-	 if(policy == SCHED_SHORT ){
-		if ( p->policy != SCHED_OTHER){
+	 if( policy == SCHED_SHORT ){
+		if ( p->policy != SCHED_OTHER ){
 			//goto out_unlock;
 			task_rq_unlock(rq, &flags);
 			return -EINVAL;
-		}else{ // need to be changed from other to short
+		} else { // need to be changed from other to short
 			p->policy = policy;
 			if(p->array){
 				dequeue_task(p,p->array);
@@ -1311,9 +1393,8 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 			enqueue_task(p,rq->short_q);
 			p->array = rq->short_q;
 		}
-		
 		goto out_unlock;
-	 }
+	 }*/
 	 
 	 /**/	
 	if (policy < 0)
@@ -1321,10 +1402,13 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	else {
 		retval = -EINVAL;
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
-				policy != SCHED_OTHER)
+				policy != SCHED_OTHER && policy != SCHED_SHORT ){ // HW2
+			printk("test 1324: policy:\t%d\n", policy);
 			goto out_unlock;
+		}
 	}
-
+	printk("test 1327 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
 	/*
 	 * Valid priorities for SCHED_FIFO and SCHED_RR are
 	 * 1..MAX_USER_RT_PRIO-1, valid priority for SCHED_OTHER is 0.
@@ -1332,27 +1416,63 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	retval = -EINVAL;
 	if (lp.sched_priority < 0 || lp.sched_priority > MAX_USER_RT_PRIO-1)
 		goto out_unlock;
-	if ((policy == SCHED_OTHER) != (lp.sched_priority == 0))
+	printk("test 1336 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	if ((policy == SCHED_OTHER || policy == SCHED_SHORT) != (lp.sched_priority == 0)) {//HW2
+		printk("test 1338 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		goto out_unlock;
-
+	}
+		
 	retval = -EPERM;
 	if ((policy == SCHED_FIFO || policy == SCHED_RR) &&
-	    !capable(CAP_SYS_NICE))
+	    !capable(CAP_SYS_NICE)) // HW2 - TODO: check if we need extra condition for SHORT processes
 		goto out_unlock;
+	printk("test 1346 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
 	if ((current->euid != p->euid) && (current->euid != p->uid) &&
 	    !capable(CAP_SYS_NICE))
 		goto out_unlock;
-
+	printk("test 1351 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
+	if ((p->policy == SCHED_FIFO || p->policy == SCHED_RR) && policy == SCHED_SHORT){ // HW2
+		printk("test 1354 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		goto out_unlock;
+	}
+	printk("test 1357 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
+	if ( p->policy == SCHED_SHORT && p->is_overdue){ // HW2
+		goto out_unlock;
+	}
+	printk("test 1362 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		
 	array = p->array;
 	if (array)
 		deactivate_task(p, task_rq(p));
 	retval = 0;
+	if (p->policy == SCHED_OTHER && policy == SCHED_SHORT ){ //HWs2 : other -> short
+		printk("test 1369 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		p->requested_time = param->requested_time;
+		p->number_of_trials = param->number_of_trials;
+		p->array = rq->short_q;
+		p->current_trial = 0;
+		p->is_overdue = 0;
+		printk("HZ = %d\n", HZ);
+		p->time_slice = SHORT_TIMESLICE(p);
+		printk("test 1378 : p->policy:\t%d\npolicy:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\ntime_slice:\t%d\n", p->policy, policy, p->number_of_trials, p->requested_time, p->time_slice);
+	
+		
+	} else if (p->policy == SCHED_SHORT && policy == SCHED_SHORT) { // HW2: short updates parameters
+		p->requested_time = param->requested_time;
+		printk("test 1380 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		goto out_unlock;
+	}
 	p->policy = policy;
 	p->rt_priority = lp.sched_priority;
-	if (policy != SCHED_OTHER)
+	if (policy == SCHED_RR || policy == SCHED_FIFO) { // HW2 : change of condition to fit SCHED_SHORT
 		p->prio = MAX_USER_RT_PRIO-1 - p->rt_priority;
-	else
+	} else {
 		p->prio = p->static_prio;
+	}
+	
 	if (array)
 		activate_task(p, task_rq(p));
 //TODO - do we need to set_need_resched ourself?
@@ -1368,6 +1488,9 @@ out_nounlock:
 asmlinkage long sys_sched_setscheduler(pid_t pid, int policy,
 				      struct sched_param *param)
 {
+	if (policy == SCHED_SHORT){
+		param->sched_priority = 0;
+	}
 	return setscheduler(pid, policy, param);
 }
 
@@ -1420,7 +1543,7 @@ asmlinkage long sys_sched_getparam(pid_t pid, struct sched_param *param)
 	 */
 	
 	lp.requested_time = p->requested_time;
-	lp.number_of_trials = p->number_of_trials - p->current_trial;
+	lp.number_of_trials = p->number_of_trials - p->current_trial; //HW2 
 	read_unlock(&tasklist_lock);
 
 	/*
@@ -1803,7 +1926,9 @@ void __init sched_init(void)
 		rq = cpu_rq(i);
 		rq->active = rq->arrays;
 		rq->expired = rq->arrays + 1;
-		/* HW2 adding initialize rq's */
+		/* HW2
+         * adding initialize rq's 
+		 */
 		rq->short_q = rq->arrays + 2;
 		rq->overdue = rq->arrays + 3;
 		rq->info_start = 0;
@@ -1813,6 +1938,10 @@ void __init sched_init(void)
 		spin_lock_init(&rq->lock);
 		INIT_LIST_HEAD(&rq->migration_queue);
 
+		/*
+		 * HW2
+		 * initialize bitmap for active, expired, short_q and overdue.
+		 */
 		for (j = 0; j < 4; j++) {
 			array = rq->arrays + j;
 			for (k = 0; k < MAX_PRIO; k++) {

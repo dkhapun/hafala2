@@ -32,32 +32,32 @@ int main(int argc, char const *argv[])
 
 	int tasks_num = (argc - 1) / 2;
 	vector<test_task> tasks;
-	for(int i = 0; i < tasks_num; i++)
+	for(int i = 1; i <= tasks_num; i++)
 	{
 		test_task tt;
-		tt.trials = atoi (argv[i*2]);
-		tt.fnum = atoi (argv[i*2 + 1]);
+		tt.trials = atoi (argv[i*2 - 1]);
+		tt.fnum = atoi (argv[i*2]);
 		tt.pid = fork();
 		if(tt.pid == 0)
 		{
 			int cpid = getpid();
 			sched_param sp = {0};
-			sp.sched_priority = 0;
-			sp.requested_time = 0;
-			sp.number_of_trails = tt.trials;
+			sp.sched_priority = 1;
+			sp.requested_time = 10;
+			sp.number_of_trials = tt.trials;
 			res = sched_setscheduler(cpid, SCHED_SHORT, &sp);
 
 			cout << "test pid:" << cpid << endl;
 			cout << "================" << endl;
 
 			res = is_SHORT(cpid);
-			cout << "is_SHORT res=" << res << ";errno="<< errno << ";pid=" << cpid << endl;
+			cout << "is_SHORT res = " << res << ";\terrno = "<< errno << ";\tpid = " << cpid << endl;
 			
 			res = remaining_time(cpid);
-			cout << "remaining_time res=" << res << ";errno="<< errno << ";pid=" << cpid << endl;
+			cout << "remaining_time res = " << res << ";\terrno = "<< errno << ";\tpid = " << cpid << endl;
 			
 			res = remaining_trials(cpid);
-			cout << "remaining_trails res=" << res << ";errno="<< errno << ";pid=" << cpid << endl;
+			cout << "remaining_trails res = " << res << ";\terrno = "<< errno << ";\tpid = " << cpid << endl;
 			
 			fibonaci(tt.fnum);
 			return 0;

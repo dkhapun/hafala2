@@ -36,7 +36,7 @@ asmlinkage int sys_remaining_time(int pid) {
 		return 0;
 	}
 
-	return (((my_task->time_slice) / HZ ) * 1000);//when it is short returns its left time in slice
+	return (((my_task->time_slice * 1000) / HZ ) );//when it is short returns its left time in slice
 }
 
 //The wrapper will return the number of trials left for the SHORT process, for
