@@ -144,13 +144,18 @@ typedef struct switch_info
 	int previous_policy;
 	int next_policy;
 	unsigned long time;
-	int reason;
+	switch_reason reason;
 } switch_info_t;
 #define SWITCH_INFO_ARRAY_SIZE 150
 
 extern void record_switch(switch_reason reason);
 
 extern int copy_switch_info_to_user(struct switch_info * usr);
+
+extern void deactivate_task_hw2(struct task_struct *p);
+
+extern void activate_task_hw2(struct task_struct *p);
+
 
 struct completion;
 

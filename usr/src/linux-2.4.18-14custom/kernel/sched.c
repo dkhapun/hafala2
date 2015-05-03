@@ -184,11 +184,12 @@ static struct runqueue runqueues[NR_CPUS] __cacheline_aligned;
  * HW2
  * switch info setup function
 */
+#define INC_INFO(inf) ((inf) + 1) % SWITCH_INFO_ARRAY_SIZE
 void record_switch(switch_reason reason)
 {
 	struct runqueue* rq = this_rq();
 	int next_info = rq->info_end;
-	rq->switch_info_arr[next_info].reason = (int)reason;
+	rq->switch_info_arr[next_info].reason = reason;
 	if (reason == SR_TASK_CREATED || reason == SR_TASK_ENDED)
 		rq->rec_switching_remaining = 30;
 }
@@ -204,19 +205,21 @@ void create_record(int previous_pid, int next_pid , int previous_policy, int nex
 	rq->switch_info_arr[next_info].time = jiffies;
 	
 	if (--rq->rec_switching_remaining > 0){
-		int next_info = rq->info_end;
-		rq->info_end = (next_info + 1) % SWITCH_INFO_ARRAY_SIZE;
-		if(rq->info_end == rq->info_start)
-			rq->info_start = (rq->info_start + 1) % SWITCH_INFO_ARRAY_SIZE;
+		rq->info_end = INC_INFO(next_info);
+		if (rq->info_end == rq->info_start){
+			rq->info_start = INC_INFO(rq->info_start);
+		}
 	}
 }	
 
 
 int copy_switch_info_to_user(struct switch_info * usr)
 {
+	struct runqueue* rq = this_rq();
 	if(!usr)
 		return -EFAULT;
-	int res = copy_to_user(usr, this_rq()->switch_info_arr, sizeof(struct switch_info)*SWITCH_INFO_ARRAY_SIZE) ? -EFAULT : 0;
+	int number_of_records = (rq->info_end > rq->info_start) ? rq->info_end - rq->info_start : SWITCH_INFO_ARRAY_SIZE - (rq->info_start - rq->info_end);
+	int res = copy_to_user(usr, this_rq()->switch_info_arr, sizeof(struct switch_info)*SWITCH_INFO_ARRAY_SIZE) ? -EFAULT : number_of_records;
 	return res;
 }
 /*
@@ -465,7 +468,6 @@ repeat_lock_task:
 		  * what should we do? TODO
 		  */ 
 		if (p->prio < rq->curr->prio){
-			
 			record_switch(SR_HIGHIER_TASK_ACTIVE);
 			resched_task(rq->curr);
 		}
@@ -1022,27 +1024,23 @@ pick_next_task:
 	 * if idx >= 100 && !list_empty(short) -> then next = list_entry(short(idx)->next, task_t, run_list);
 	 */
 
+	 /*
+	  * notice! there a re no SCHED_RR processes in expired, and if there aren't any active other process - the active and expired array would have been swapped already
+	  * so there is no need to check expired	  
+	  */
 	int idx_active = (rq->active->nr_active > 0)? sched_find_first_bit(rq->active->bitmap) : -1 ;
-	int idx_expired = (rq->expired->nr_active > 0)? sched_find_first_bit(rq->expired->bitmap) : -1 ;
 	int idx_short = (rq->short_q->nr_active > 0)? sched_find_first_bit(rq->short_q->bitmap) : -1 ;
 	int idx_overdue = (rq->overdue->nr_active > 0)? sched_find_first_bit(rq->overdue->bitmap) : -1 ;
 	
 	if ( idx_active < 100 && idx_active >= 0 ){
 		//real time
 		queue = rq->active->queue + idx_active;
-	
-	}else if ( idx_expired < 100 && idx_expired >= 0 ){
-		// real time expired
-		queue = rq->expired->queue + idx_expired;
-	}else if ( idx_active >= 100){
-		//other active
-		queue = rq->active->queue + idx_active;
-	}else if( idx_expired  >=100 ){
-		//other expired
-		queue = rq->expired->queue + idx_expired;
-	}else if ( idx_short >= 0 ){ 
+	} else if ( idx_short >= 0 ){ 
 		// short
 		queue = rq->short_q->queue + idx_short;
+	} else if ( idx_active >= 100){
+		//other
+		queue = rq->active->queue + idx_active;
 	}else if ( idx_overdue >= 0 ){
 		//overdue
 		queue = rq->overdue->queue + idx_overdue;
@@ -1267,8 +1265,10 @@ void set_user_nice(task_t *p, long nice)
 		 * If the task is running and lowered its priority,
 		 * or increased its priority then reschedule its CPU:
 		 */
-		if ((NICE_TO_PRIO(nice) < p->static_prio) || (p == rq->curr))
+		if ((NICE_TO_PRIO(nice) < p->static_prio) || (p == rq->curr)){
+			record_switch(SR_HIGHIER_TASK_ACTIVE);
 			resched_task(rq->curr);
+		}
 	}
 out_unlock:
 	task_rq_unlock(rq, &flags);
@@ -1481,7 +1481,8 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	}
 	
 	if (p->policy == SCHED_SHORT){
-		set_tsk_need_resched(p);
+		record_switch(SR_HIGHIER_TASK_ACTIVE);
+		schedule();
 	}
 out_unlock:
 	task_rq_unlock(rq, &flags);
@@ -2235,6 +2236,15 @@ int ll_copy_from_user(void *to, const void *from_user, unsigned long len)
 	}
 	return 0;
 }
+
+void deactivate_task_hw2(struct task_struct *p){
+	deactivate_task(p, this_rq());
+}
+
+void activate_task_hw2(struct task_struct *p){
+	activate_task(p, this_rq());
+}
+
 
 #ifdef CONFIG_LOLAT_SYSCTL
 struct low_latency_enable_struct __enable_lowlatency = { 0, };

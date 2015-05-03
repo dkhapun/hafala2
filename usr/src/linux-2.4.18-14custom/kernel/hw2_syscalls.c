@@ -69,15 +69,8 @@ asmlinkage int sys_remaining_trials(int pid) {
 //overdue process it should return 0.
 asmlinkage int sys_get_scheduling_statistic(struct switch_info * info) 
 {
-	task_t *my_task = current;
 	if (!info)
 		return -EINVAL;
-
-	int retval = copy_switch_info_to_user(info) ? -EFAULT : 0;
-	if (my_task == NULL)
-	{
-		return -EINVAL; // in case of error
-	}
-	return SWITCH_INFO_ARRAY_SIZE;
+	return copy_switch_info_to_user(info);
 }
 

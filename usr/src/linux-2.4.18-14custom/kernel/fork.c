@@ -804,8 +804,12 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 		 */
 		 /*
 		  * HW2
-		  * insert a record of switch
+		  * insert a record of switch and reinsert father
 		  */
+		  if ( current->policy == SCHED_SHORT){
+			deactivate_task_hw2(current);
+			activate_task_hw2(current);
+		  }
 		 record_switch(SR_TASK_CREATED);
 		 current->need_resched = 1;
 	}
