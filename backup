@@ -1,9 +1,0 @@
-cp /usr/src/linux-2.4.18-14custom/arch/i386/kernel/entry.S 	/mnt/hgfs/D/backup_files
-cp /usr/include/syscall_maxproc.h /mnt/hgfs/D/backup_files
-cp /usr/src/linux-2.4.18-14custom/kernel/syscall_maxproc.c /mnt/hgfs/D/backup_files
-cp /usr/src/linux-2.4.18-14custom/include/linux/sched.h /mnt/hgfs/D/backup_files
-cp /usr/src/linux-2.4.18-14custom/kernel/Makefile /mnt/hgfs/D/backup_files
-cp /usr/src/linux-2.4.18-14custom/kernel/exit.c /mnt/hgfs/D/backup_files
-cp /usr/src/linux-2.4.18-14custom/kernel/fork.c /mnt/hgfs/D/backup_files
-cp /home/user/* /mnt/hgfs/D/backup_files
-

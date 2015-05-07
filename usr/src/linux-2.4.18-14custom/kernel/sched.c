@@ -115,7 +115,7 @@
 /*
  * HW2
  */
-#define SHORT_TIMESLICE(p) ((p->requested_time * HZ) / 1000) ? ((p->requested_time * HZ) / 1000) : 1
+#define SHORT_TIMESLICE(p) (((p->requested_time * HZ) / 1000)/(p->current_trial + 1))
 	
 /*
  * These are the runqueue data structures:
@@ -331,14 +331,25 @@ static inline void activate_task(task_t *p, runqueue_t *rq)
 	 * take care of short and overdue as well
 	 */
 
+	 if (rq == NULL){
+		 printk(" PANICA!!! rq null in %s %s", __FUNCTION__, __LINE__);
+		 return;
+	 }
+	 if (rq->short_q == NULL){
+		 printk(" PANICA!!! rq->short_q null in %s %s", __FUNCTION__, __LINE__);
+		 return;
+	 }
 	unsigned long sleep_time = jiffies - p->sleep_timestamp;
 	prio_array_t *array = rq->active;
 
 	if (p->policy == SCHED_SHORT){
+		
 		if (p->is_overdue){
 			array = rq->overdue;
+			HW2_DBG("%s %s activate short overdue process\n", __FUNCTION__, __LINE__);
 		} else {
 			array = rq->short_q;
+			HW2_DBG("%s %s activate short process\n", __FUNCTION__, __LINE__);
 		}
 	}
 	
@@ -350,13 +361,25 @@ static inline void activate_task(task_t *p, runqueue_t *rq)
 		 * the higher the average gets - and the higher the priority
 		 * boost gets as well.
 		 */
+		 HW2_DBG("%s %s\n", __FUNCTION__, __LINE__);
 		p->sleep_avg += sleep_time;
 		if (p->sleep_avg > MAX_SLEEP_AVG)
 			p->sleep_avg = MAX_SLEEP_AVG;
 		p->prio = effective_prio(p);
+		HW2_DBG("%s %s\n", __FUNCTION__, __LINE__);
 	}
 	enqueue_task(p, array);
-	rq->nr_running++;
+	int i;
+	HW2_DBG("short_q: nr_active=%d\n", rq->short_q->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->short_q->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->short_q->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
+		rq->nr_running++;
 }
 
 static inline void deactivate_task(struct task_struct *p, runqueue_t *rq)
@@ -486,9 +509,25 @@ int wake_up_process(task_t * p)
 
 void wake_up_forked_process(task_t * p)
 {
+
+	if (current == NULL){
+		printk("PANICA!!! %s %s current is null", __FUNCTION__, __LINE__);
+	}
+	if (p == NULL){
+		printk("PANICA!!! %s %s current is null", __FUNCTION__, __LINE__);
+	}
+
 	runqueue_t *rq = this_rq_lock();
 
 	p->state = TASK_RUNNING;
+	if(p->policy == SCHED_RR){
+		//printk("%s %s : father: pid: %d policy: %d son: pid: %d policy: %d\n", __FUNCTION__, __LINE__, current->pid, current->policy, p->pid, p->policy);
+	}
+	if(p->policy == SCHED_SHORT){
+		//printk("%s %s : father: pid: %d policy: %d son: pid: %d policy: %d\n", __FUNCTION__, __LINE__, current->pid, current->policy, p->pid, p->policy);
+		deactivate_task(current , rq);
+		activate_task(current,rq);
+	}
 	if (!rt_task(p)) {
 		/*
 		 * We decrease the sleep average of forking parents
@@ -851,15 +890,37 @@ void scheduler_tick(int user_tick, int system)
 	 * if it is overdue short - goto out
 	 */
 	
-	printk("test sched.c 786: pid:\t%d\n", p->pid);
-	if ( p->policy == SCHED_SHORT ){
-		printk("test sched.c: time_slice:\t%d\ncurrent_trial:\t%d\n", p->time_slice, p->current_trial);
+	//printk("test sched.c 854: pid:\t%d\n", p->pid);
+	//~~~~~~~~~~~remove
+	/*if ( p->policy == SCHED_SHORT ){
+		printk("testt sched.c 857: time_slice:\t%d\ncurrent_trial:\t%d\n", p->time_slice, p->current_trial);
 		if (!(p->is_overdue)){
-			if (!--p->time_slice){ // when the time slice is done
+			if (p->time_slice-1 <= 0){ // when the time slice is done
+				printk("testt: end of slice of policy %d is overdue %d ~~~~~~~~~~~\n", p->policy, p->is_overdue);
+				if (p->current_trial + 1 >= p->number_of_trials){
+overduetest:			 printk("test: short->overdue ~~~~~~~~~~~\n");
+					 
+				} else { // he is still shord and nice :)
+					if (SHORT_TIMESLICE(p)){
+						goto overduetest;
+					}
+				}
+			}
+		}
+	}*/
+	spin_lock(&rq->lock);
+	if ( p->policy == SCHED_SHORT ){
+		printk("testt sched.c 857: time_slice:\t%d\ncurrent_trial:\t%d\n", p->time_slice, p->current_trial);
+		if (!(p->is_overdue)){
+			if (--p->time_slice <= 0){ // when the time slice is done
+				printk("testt: end of slice of policy %d is overdue %d ~~~~~~~~~~~\n", p->policy, p->is_overdue);
 				p->current_trial++;
 				p->first_time_slice = 0;
-				if (p->current_trial == p->number_of_trials){
+				if (p->current_trial >= p->number_of_trials){
+overdue:			 printk("test: short->overdue ~~~~~~~~~~~\n");
+					 p->time_slice = 1; // added
 					 dequeue_task(p, rq->short_q);
+					 //enqueue_task(p, rq->short_q);//~~~~~~~~~~~~remove
 					 p->prio = 0;
 					 enqueue_task(p, rq->overdue);
 					 p->array = rq->overdue; //points to it's daddy
@@ -868,7 +929,9 @@ void scheduler_tick(int user_tick, int system)
 					 
 				} else { // he is still shord and nice :)
 					p->time_slice = SHORT_TIMESLICE(p);
-					p->first_time_slice = 0;
+					if (!p->time_slice){
+						goto overdue;
+					}
 					dequeue_task(p, rq->short_q);
 					enqueue_task(p, rq->short_q);
 					record_switch(SR_TIME_SLICE_OVER);
@@ -886,9 +949,9 @@ void scheduler_tick(int user_tick, int system)
 	/* Task might have expired already, but not scheduled off yet */
 	if (p->array != rq->active) {
 		set_tsk_need_resched(p);
-		return;
+		goto out;
 	}
-	spin_lock(&rq->lock);
+	
 	if (unlikely(rt_task(p))) {
 		/*
 		 * RR tasks need a special form of timeslice management.
@@ -970,7 +1033,9 @@ need_resched:
 			break;
 		}
 	default:
+	HW2_DBG("i");
 		deactivate_task(prev, rq);
+	HW2_DBG("i current->array=%p\n", current->array);
 	case TASK_RUNNING:
 		;
 	}
@@ -1012,11 +1077,6 @@ pick_next_task:
 		array = rq->active;
 		rq->expired_timestamp = 0;
 	}
-/*
-	idx = sched_find_first_bit(array->bitmap);
-	queue = array->queue + idx;
-	next = list_entry(queue->next, task_t, run_list);
-*/
 
 	/*
 	 * HW2
@@ -1041,12 +1101,46 @@ pick_next_task:
 	} else if ( idx_active >= 100){
 		//other
 		queue = rq->active->queue + idx_active;
-	}else if ( idx_overdue >= 0 ){
+	} else if ( idx_overdue >= 0 ){
 		//overdue
 		queue = rq->overdue->queue + idx_overdue;
 	}
-	
 	next = list_entry(queue->next, task_t, run_list);
+	
+	HW2_DBG("idx: active=%d,short=%d,overdue=%d\n", idx_active, idx_short, idx_overdue);
+	HW2_DBG("next: pid=%d,policy=%lu,prio=%d,state=%ld\n", next->pid, next->policy, next->prio, next->state);
+	
+	int i;
+	
+	HW2_DBG("active: nr_active=%d\n", rq->active->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->active->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->active->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
+	
+	HW2_DBG("short_q: nr_active=%d\n", rq->short_q->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->short_q->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->short_q->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
+	
+	HW2_DBG("overdue: nr_active=%d\n", rq->overdue->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->overdue->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->overdue->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
 
 		
 switch_tasks:
@@ -1054,6 +1148,7 @@ switch_tasks:
 	clear_tsk_need_resched(prev);
 
 	if (likely(prev != next)) {
+	HW2_DBG("j prev: %d, next: %d\n", prev->pid, next->pid);
 		rq->nr_switches++;
 		rq->curr = next;
 	
@@ -1061,19 +1156,29 @@ switch_tasks:
 		 * HW2
 		 * create record in switch_info_arr
 		 */
+	HW2_DBG("k");
 		create_record(prev->pid, next->pid, prev->policy, next->policy);
+	HW2_DBG("k");
 		prepare_arch_switch(rq);
+	HW2_DBG("k");
 		prev = context_switch(prev, next);
+	HW2_DBG("l");
 		barrier();
+	HW2_DBG("l");
 		rq = this_rq();
+	HW2_DBG("l");
 		finish_arch_switch(rq);
+	HW2_DBG("l");
 	} else
 		spin_unlock_irq(&rq->lock);
 	finish_arch_schedule(prev);
 
+	HW2_DBG("m");
 	reacquire_kernel_lock(current);
+	HW2_DBG("m");
 	if (need_resched())
 		goto need_resched;
+	HW2_DBG("m");
 }
 
 /*
@@ -1257,6 +1362,7 @@ void set_user_nice(task_t *p, long nice)
 	array = p->array;
 	if (array)
 		dequeue_task(p, array);
+	
 	p->static_prio = NICE_TO_PRIO(nice);
 	p->prio = NICE_TO_PRIO(nice);
 	if (array) {
@@ -1270,6 +1376,7 @@ void set_user_nice(task_t *p, long nice)
 			resched_task(rq->curr);
 		}
 	}
+	
 out_unlock:
 	task_rq_unlock(rq, &flags);
 }
@@ -1365,7 +1472,20 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if (copy_from_user(&lp, param, sizeof(struct sched_param)))
 		goto out_nounlock;
 
+		
+		
+		//debug - TODO REMOVE
+		
+			 if( policy == SCHED_SHORT ){
+		if(param->requested_time > 5000 || param->requested_time < 1 || 
+		param->trial_num < 1 || param->trial_num > 50){
+		 printk("testf reached -EINVAL unvalid parameter\n");
+		}
+	 }
 	
+		//~~~~~~~~~~~~~~~
+		
+		
 	/*
 	 * We play safe to avoid deadlocks.
 	 */
@@ -1377,20 +1497,22 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if (!p)
 		goto out_unlock_tasklist;
 
-	printk("test 1266 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1266 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	/* HW2 - check the boundaries of the parameters:
 	 * 1 <= requested_time <= 5000
-	 * 1 <= number_of_trials <= 50
+	 * 1 <= trial_num <= 50
 	 */
 	 
 	 if( policy == SCHED_SHORT ){
 		if(param->requested_time > 5000 || param->requested_time < 1 || 
-		param->number_of_trials < 1 || param->number_of_trials > 50){
+		param->trial_num < 1 || param->trial_num > 50){
+		 printk("testf reached -EINVAL unvalid parameter\n");
+		
 			return -EINVAL;
 		}
 	 }
-	 printk("test 1279 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	 //printk("test 1279 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	 /****/
 	
@@ -1410,7 +1532,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 			goto out_unlock;
 		}
 	}
-	printk("test 1327 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1327 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	/*
 	 * Valid priorities for SCHED_FIFO and SCHED_RR are
@@ -1419,9 +1541,9 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	retval = -EINVAL;
 	if (lp.sched_priority < 0 || lp.sched_priority > MAX_USER_RT_PRIO-1)
 		goto out_unlock;
-	printk("test 1336 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1336 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 	if ((policy == SCHED_OTHER || policy == SCHED_SHORT) != (lp.sched_priority == 0)) {//HW2
-		printk("test 1338 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		//printk("test 1338 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		goto out_unlock;
 	}
 		
@@ -1429,43 +1551,43 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if ((policy == SCHED_FIFO || policy == SCHED_RR) &&
 	    !capable(CAP_SYS_NICE)) // HW2 - TODO: check if we need extra condition for SHORT processes
 		goto out_unlock;
-	printk("test 1346 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1346 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	if ((current->euid != p->euid) && (current->euid != p->uid) &&
 	    !capable(CAP_SYS_NICE))
 		goto out_unlock;
-	printk("test 1351 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1351 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	if ((p->policy == SCHED_FIFO || p->policy == SCHED_RR) && policy == SCHED_SHORT){ // HW2
-		printk("test 1354 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//	printk("test 1354 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		goto out_unlock;
 	}
-	printk("test 1357 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1357 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	if ( p->policy == SCHED_SHORT && p->is_overdue){ // HW2
 		goto out_unlock;
 	}
-	printk("test 1362 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	//printk("test 1362 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	array = p->array;
 	if (array)
 		deactivate_task(p, task_rq(p));
 	retval = 0;
-	if (p->policy == SCHED_OTHER && policy == SCHED_SHORT ){ //HWs2 : other -> short
-		printk("test 1369 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	if (p->policy == SCHED_OTHER && policy == SCHED_SHORT ){ //HW2 : other -> short
+	//printk("test 1369 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		p->requested_time = param->requested_time;
-		p->number_of_trials = param->number_of_trials;
+		p->number_of_trials = param->trial_num;
 		p->array = rq->short_q;
 		p->current_trial = 0;
 		p->is_overdue = 0;
 		printk("HZ = %d\n", HZ);
 		p->time_slice = SHORT_TIMESLICE(p);
-		printk("test 1378 : p->policy:\t%d\npolicy:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\ntime_slice:\t%d\n", p->policy, policy, p->number_of_trials, p->requested_time, p->time_slice);
+		//printk("test 1378 : p->policy:\t%d\npolicy:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\ntime_slice:\t%d\n", p->policy, policy, p->number_of_trials, p->requested_time, p->time_slice);
 	
 		
 	} else if (p->policy == SCHED_SHORT && policy == SCHED_SHORT) { // HW2: short updates parameters
 		p->requested_time = param->requested_time;
-		printk("test 1380 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		//printk("test 1380 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		goto out_unlock;
 	}
 	p->policy = policy;
@@ -1551,7 +1673,7 @@ asmlinkage long sys_sched_getparam(pid_t pid, struct sched_param *param)
 	 */
 	
 	lp.requested_time = p->requested_time;
-	lp.number_of_trials = p->number_of_trials - p->current_trial; //HW2 
+	lp.trial_num = p->number_of_trials - p->current_trial; //HW2 
 	read_unlock(&tasklist_lock);
 
 	/*

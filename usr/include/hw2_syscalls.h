@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <sched.h>
 
 int is_SHORT(int pid){
 	long __res;

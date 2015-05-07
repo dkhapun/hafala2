@@ -3,6 +3,12 @@
 
 #include <asm/param.h>	/* for HZ */
 
+#define HW2_DBG(f, ...) \
+	do { \
+		if (current->policy == SCHED_SHORT)\
+			printk(f, ## __VA_ARGS__); \
+	} while (0)
+
 extern unsigned long event;
 
 #include <linux/config.h>
@@ -127,12 +133,12 @@ extern unsigned long nr_uninterruptible(void);
 
 /*
  * HW2
- * add two fields: requested_time, number_of_trials.
+ * add two fields: requested_time, trial_num.
  */
 struct sched_param {
 	int sched_priority;
 	int requested_time;
-	int number_of_trials;
+	int trial_num;
 };
 
 typedef enum {SR_TASK_CREATED, SR_TASK_ENDED, SR_TASK_YIELDS, SR_SHORT_OVER, SR_PREV_TASK_WAIT, SR_HIGHIER_TASK_ACTIVE, SR_TIME_SLICE_OVER} switch_reason;
@@ -152,9 +158,9 @@ extern void record_switch(switch_reason reason);
 
 extern int copy_switch_info_to_user(struct switch_info * usr);
 
-extern void deactivate_task_hw2(struct task_struct *p);
+//extern void deactivate_task_hw2(struct task_struct *p);
 
-extern void activate_task_hw2(struct task_struct *p);
+//extern void activate_task_hw2(struct task_struct *p);
 
 
 struct completion;

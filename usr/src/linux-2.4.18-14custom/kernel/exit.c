@@ -532,7 +532,7 @@ fake_volatile:
 	 * HW2
 	 * insert record for exiting process.
 	 */
-	 record_switch(SR_TASK_ENDED);
+	record_switch(SR_TASK_ENDED);
 	schedule();
 	BUG();
 /*
@@ -569,18 +569,28 @@ asmlinkage long sys_wait4(pid_t pid,unsigned int * stat_addr, int options, struc
 	int flag, retval;
 	DECLARE_WAITQUEUE(wait, current);
 	struct task_struct *tsk;
+	
+	HW2_DBG("*** %s:%d:%s(pid=%d)\n", __FILE__, __LINE__, __FUNCTION__, pid);
 
 	if (options & ~(WNOHANG|WUNTRACED|__WNOTHREAD|__WCLONE|__WALL))
 		return -EINVAL;
 
+	HW2_DBG("a");
 	add_wait_queue(&current->wait_chldexit,&wait);
+	HW2_DBG("a");
 repeat:
+	HW2_DBG("a");
 	flag = 0;
+	HW2_DBG("a");
 	current->state = TASK_INTERRUPTIBLE;
+	HW2_DBG("a");
 	read_lock(&tasklist_lock);
+	HW2_DBG("a");
 	tsk = current;
+	HW2_DBG("a");
 	do {
 		struct task_struct *p;
+	HW2_DBG("b");
 	 	for (p = tsk->p_cptr ; p ; p = p->p_osptr) {
 			if (pid>0) {
 				if (p->pid != pid)
@@ -640,11 +650,16 @@ repeat:
 				continue;
 			}
 		}
+	HW2_DBG("c");
 		if (options & __WNOTHREAD)
 			break;
+	HW2_DBG("c");
 		tsk = next_thread(tsk);
+	HW2_DBG("c");
 	} while (tsk != current);
+	HW2_DBG("d");
 	read_unlock(&tasklist_lock);
+	HW2_DBG("d flag=%d\n", flag);
 	if (flag) {
 		retval = 0;
 		if (options & WNOHANG)
@@ -652,13 +667,19 @@ repeat:
 		retval = -ERESTARTSYS;
 		if (signal_pending(current))
 			goto end_wait4;
+	HW2_DBG("e");
 		schedule();
+	HW2_DBG("f");
 		goto repeat;
 	}
+	HW2_DBG("g");
 	retval = -ECHILD;
 end_wait4:
+	HW2_DBG("h");
 	current->state = TASK_RUNNING;
+	HW2_DBG("h");
 	remove_wait_queue(&current->wait_chldexit,&wait);
+	HW2_DBG("h");
 	return retval;
 }
 

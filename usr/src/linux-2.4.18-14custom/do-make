@@ -1,0 +1,92 @@
+#!/bin/sh
+
+make "$@" | \
+while IFS= read -r cmd
+do
+	case "$cmd" in
+		make\ *)
+			;;
+		make\[*\]:\ *)
+			printf '%s\n' "$cmd"
+			;;
+		gcc\ *)
+			case "$cmd" in
+				*\ -c\ *)
+					out="${cmd##*-DKBUILD_BASENAME=}"
+					out="${out%%\ *}"
+					out="$out.o"
+					printf '  CC      %s\n' "$out"
+					;;
+				*\ -E\ *)
+					out="${cmd##*\ -o\ }"
+					out="${out%%\ *}"
+					printf '  CPP     %s\n' "$out"
+					;;
+				*)
+					printf '%s\n' "$cmd"
+					;;
+			esac
+			;;
+		.\ scripts/mkversion\ *)
+			out="${cmd##*" > "}"
+			printf '  MKVER   %s\n' "$out"
+			;;
+		rm\ *)
+			;;
+		ld\ *)
+			out="${cmd##*\ -o\ }"
+			out="${out%%\ *}"
+			printf '  LD      %s\n' "$out"
+			;;
+		ar\ *)
+			out="$(set -- $cmd; echo $3)"
+			printf '  AR      %s\n' "$out"
+			;;
+		kallsyms\ *)
+			pass="${cmd##kallsyms\ pass\ }"
+			printf '  KALLSYMS %d\n' "$pass"
+			;;
+		nm\ *)
+			printf '  GEN     System.map\n'
+			;;
+		as\ *)
+			out="${cmd##*\ -o\ }"
+			out="${out%%\ *}"
+			printf '  AS      %s\n' "$out"
+			;;
+		*piggy*)
+			;;
+		objcopy\ *)
+			out="${cmd##*\ }"
+			printf '  OBJCOPY %s\n' "$out"
+			;;
+		*" > bzImage")
+			printf '  GEN     bzImage\n'
+			;;
+		mkdir\ -p\ *)
+			dir="${cmd##"mkdir -p "}"
+			dir="${dir%%;*}"
+			printf '  MKDIRP  %s\n' "$dir"
+			;;
+		cp\ *)
+			src="${cmd##"cp "}"
+			src="${src%\ *}"
+			dst="${cmd##*\ }"
+			printf '  CP      %s => %s\n' "$src" "$dst"
+			;;
+		cd\ *)
+			dir="${cmd#cd\ }"
+			dir="${dir%%;*}"
+			printf '  CD      %s\n' "$dir"
+			;;
+		find\ *pcmcia)
+			printf '  LN      pcmcia/*.o\n'
+			;;
+		*\ /sbin/depmod\ *)
+			printf '  DEPMOD\n'
+			;;
+		*)
+			printf '%s\n' "$cmd"
+			;;
+	esac
+done

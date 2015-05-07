@@ -81,7 +81,7 @@ int main(int argc, char const *argv[])
 		{
 			int cpid = getpid();
 			sp.sched_priority = 1;
-			sp.requested_time = 10;
+			sp.requested_time = 2;
 			sp.number_of_trials = tt.trials;
 			sched_setscheduler(tt.pid, SCHED_SHORT, &sp);
 			
