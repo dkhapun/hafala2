@@ -6,7 +6,18 @@
 #define HW2_DBG(f, ...) \
 	do { \
 		if (current->policy == SCHED_SHORT)\
+		{ \
 			printk(f, ## __VA_ARGS__); \
+		} \			
+	} while (0)
+
+#define HW2_DBG2(f, ...) \
+	do { \
+//		if (current->policy == SCHED_SHORT)\
+//		{ \
+			printk("HW2[%s:%s]", __FUNCTION__, __LINE__); \
+			printk(f, ## __VA_ARGS__); \
+//		} \
 	} while (0)
 
 extern unsigned long event;

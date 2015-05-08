@@ -4,16 +4,35 @@
 #include <assert.h>
 #include <hw2_syscalls.h>
 
+#define HW2_DBG2(f, ...) \
+	do { \
+//		if (current->policy == SCHED_SHORT)\
+//		{ \
+			printf("HW2[%s:%s]", __FUNCTION__, __LINE__); \
+			printf(f, ## __VA_ARGS__); \
+//		} \
+	} while (0)
+
 #define HZ 512
 #define THIS_POL SCHED_RR
 
 int to_short(int pid, int policy, struct sched_param* param) {
-	int ret;
+	int ret = 0;
+	int i = 0;
 	if (sched_getscheduler(pid) != SCHED_OTHER) {
-		ret = sched_setscheduler(pid,SCHED_OTHER,param);
-		if (ret < 0) return ret;
+
+		if ((ret = sched_setscheduler(pid,SCHED_OTHER,param)) < 0)
+		{
+			printf("setsched other error: %s", strerror(errno));
+			return ret;
+		} 
 	}
-	return sched_setscheduler(pid,SCHED_SHORT,param);
+	for(i = 0; i < 10000; i++){}
+	if ((ret = sched_setscheduler(pid,SCHED_SHORT,param)) < 0)
+	{
+		printf("setsched short error: %s", strerror(errno));
+	}
+	return ret;
 }
 
 
@@ -63,7 +82,7 @@ void testChangeRequestedTimeForShort() {
 		paramIn.requested_time = expected_requested_time;
 		paramIn.trial_num = expected_trials;
 		printf("line 287 \n");
-		paramIn.sched_priority = 1;
+		paramIn.sched_priority = 0;
 		to_short(id, SCHED_SHORT, &paramIn); //make son short
 		assert(sched_getscheduler(id) == SCHED_SHORT);
 		

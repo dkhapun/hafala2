@@ -1001,6 +1001,41 @@ out:
 	spin_unlock(&rq->lock);
 }
 
+void print_all_queues()
+{
+	runqueue_t *rq;
+	rq = this_rq();
+	int i = 0;
+	HW2_DBG("active: nr_active=%d\n", rq->active->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->active->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->active->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
+	
+	HW2_DBG("short_q: nr_active=%d\n", rq->short_q->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->short_q->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->short_q->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
+	
+	HW2_DBG("overdue: nr_active=%d\n", rq->overdue->nr_active);
+	HW2_DBG("bitmap=");
+	for (i = 0; i < BITMAP_SIZE; i++)
+			HW2_DBG("%08lx", rq->overdue->bitmap[i]);
+	HW2_DBG("\n");
+	HW2_DBG("queues: ");
+	for (i = 0; i < MAX_PRIO; i++)
+			HW2_DBG("%c", list_empty(&rq->overdue->queue[i]) ? 'e' : 'f');
+	HW2_DBG("\n");
+}
 void scheduling_functions_start_here(void) { }
 
 /*
@@ -1508,7 +1543,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		if(param->requested_time > 5000 || param->requested_time < 1 || 
 		param->trial_num < 1 || param->trial_num > 50){
 		 printk("testf reached -EINVAL unvalid parameter\n");
-		
+			HW2_DBG2("bad short params");
 			return -EINVAL;
 		}
 	 }
@@ -1544,22 +1579,27 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	//printk("test 1336 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 	if ((policy == SCHED_OTHER || policy == SCHED_SHORT) != (lp.sched_priority == 0)) {//HW2
 		//printk("test 1338 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		HW2_DBG2("bad SCHED_OTHER params");
 		goto out_unlock;
 	}
 		
 	retval = -EPERM;
-	if ((policy == SCHED_FIFO || policy == SCHED_RR) &&
-	    !capable(CAP_SYS_NICE)) // HW2 - TODO: check if we need extra condition for SHORT processes
+	if ((policy == SCHED_FIFO || policy == SCHED_RR) && !capable(CAP_SYS_NICE))
+	{ // HW2 - TODO: check if we need extra condition for SHORT processes
+	    HW2_DBG2("bad SCHED_RR not caapable params");
 		goto out_unlock;
+	}
 	//printk("test 1346 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		
 	if ((current->euid != p->euid) && (current->euid != p->uid) &&
 	    !capable(CAP_SYS_NICE))
+	{
+		HW2_DBG2("bad SCHED_RR not caapable params");
 		goto out_unlock;
-	//printk("test 1351 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+	}
 		
 	if ((p->policy == SCHED_FIFO || p->policy == SCHED_RR) && policy == SCHED_SHORT){ // HW2
-	//	printk("test 1354 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
+		HW2_DBG2("cannot change SCHED_FIFO/SCHED_RR to SCHED_SHORT");
 		goto out_unlock;
 	}
 	//printk("test 1357 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
