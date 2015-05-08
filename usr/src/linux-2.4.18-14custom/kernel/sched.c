@@ -1006,6 +1006,8 @@ void print_all_queues()
 	runqueue_t *rq;
 	rq = this_rq();
 	int i = 0;
+	HW2_DBG("print all queues:\n");
+	HW2_DBG("=================\n");
 	HW2_DBG("active: nr_active=%d\n", rq->active->nr_active);
 	HW2_DBG("bitmap=");
 	for (i = 0; i < BITMAP_SIZE; i++)
@@ -1492,7 +1494,8 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 * 1 <= number_of_trials <= 50
 	 */
 
-	 
+	 HW2_DBG2("");
+	 print_all_queues();
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1638,10 +1641,15 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		p->prio = p->static_prio;
 	}
 	
+	if (policy == SCHED_SHORT){
+		print_all_queues();//HW2-DBg
+	}
 	if (array){
 		activate_task(p, task_rq(p));
 	}
-	
+	if (policy == SCHED_SHORT){
+		print_all_queues(); // HW2-HW2
+	}
 	if (p->policy == SCHED_SHORT){
 		record_switch(SR_HIGHIER_TASK_ACTIVE);
 		schedule();
@@ -1652,6 +1660,8 @@ out_unlock_tasklist:
 	read_unlock_irq(&tasklist_lock);
 
 out_nounlock:
+	print_all_queues();
+	HW2_DBG2("");
 	return retval;
 }
 
