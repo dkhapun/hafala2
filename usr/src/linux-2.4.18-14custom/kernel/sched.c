@@ -1006,37 +1006,37 @@ void print_all_queues()
 	runqueue_t *rq;
 	rq = this_rq();
 	int i = 0;
-	HW2_DBG("print all queues:\n");
-	HW2_DBG("=================\n");
-	HW2_DBG("active: nr_active=%d\n", rq->active->nr_active);
-	HW2_DBG("bitmap=");
+	HW2_DBG_ALL("print all queues:\n");
+	HW2_DBG_ALL("=================\n");
+	HW2_DBG_ALL("active: nr_active=%d\n", rq->active->nr_active);
+	HW2_DBG_ALL("bitmap=");
 	for (i = 0; i < BITMAP_SIZE; i++)
-			HW2_DBG("%08lx", rq->active->bitmap[i]);
-	HW2_DBG("\n");
-	HW2_DBG("queues: ");
+			HW2_DBG_ALL("%08lx", rq->active->bitmap[i]);
+	HW2_DBG_ALL("\n");
+	HW2_DBG_ALL("queues: ");
 	for (i = 0; i < MAX_PRIO; i++)
-			HW2_DBG("%c", list_empty(&rq->active->queue[i]) ? 'e' : 'f');
-	HW2_DBG("\n");
+			HW2_DBG_ALL("%c", list_empty(&rq->active->queue[i]) ? 'e' : 'f');
+	HW2_DBG_ALL("\n");
 	
-	HW2_DBG("short_q: nr_active=%d\n", rq->short_q->nr_active);
-	HW2_DBG("bitmap=");
+	HW2_DBG_ALL("short_q: nr_active=%d\n", rq->short_q->nr_active);
+	HW2_DBG_ALL("bitmap=");
 	for (i = 0; i < BITMAP_SIZE; i++)
-			HW2_DBG("%08lx", rq->short_q->bitmap[i]);
-	HW2_DBG("\n");
-	HW2_DBG("queues: ");
+			HW2_DBG_ALL("%08lx", rq->short_q->bitmap[i]);
+	HW2_DBG_ALL("\n");
+	HW2_DBG_ALL("queues: ");
 	for (i = 0; i < MAX_PRIO; i++)
-			HW2_DBG("%c", list_empty(&rq->short_q->queue[i]) ? 'e' : 'f');
-	HW2_DBG("\n");
+			HW2_DBG_ALL("%c", list_empty(&rq->short_q->queue[i]) ? 'e' : 'f');
+	HW2_DBG_ALL("\n");
 	
-	HW2_DBG("overdue: nr_active=%d\n", rq->overdue->nr_active);
-	HW2_DBG("bitmap=");
+	HW2_DBG_ALL("overdue: nr_active=%d\n", rq->overdue->nr_active);
+	HW2_DBG_ALL("bitmap=");
 	for (i = 0; i < BITMAP_SIZE; i++)
-			HW2_DBG("%08lx", rq->overdue->bitmap[i]);
-	HW2_DBG("\n");
-	HW2_DBG("queues: ");
+			HW2_DBG_ALL("%08lx", rq->overdue->bitmap[i]);
+	HW2_DBG_ALL("\n");
+	HW2_DBG_ALL("queues: ");
 	for (i = 0; i < MAX_PRIO; i++)
-			HW2_DBG("%c", list_empty(&rq->overdue->queue[i]) ? 'e' : 'f');
-	HW2_DBG("\n");
+			HW2_DBG_ALL("%c", list_empty(&rq->overdue->queue[i]) ? 'e' : 'f');
+	HW2_DBG_ALL("\n");
 }
 void scheduling_functions_start_here(void) { }
 
@@ -1481,6 +1481,30 @@ static inline task_t *find_process_by_pid(pid_t pid)
 	return pid ? find_task_by_pid(pid) : current;
 }
 
+void p1()
+{
+	HW2_DBG2("setsched start");
+}
+void p2()
+{
+	printk("testf reached -EINVAL unvalid parameter\n");
+}
+void p3(int policy)
+{
+	printk("test 1324: policy:\t%d\n", policy);
+}
+void p4()
+{
+	HW2_DBG2("bad short params");
+}
+void p5()
+{
+	HW2_DBG2("setsched");
+}
+void p6()
+{
+	HW2_DBG2("set sched end");
+}
 static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 {
 	
@@ -1494,8 +1518,13 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 * 1 <= number_of_trials <= 50
 	 */
 
-	 HW2_DBG2("");
-	 print_all_queues();
+	//
+	if(policy == SCHED_SHORT)
+	{
+		printk("setsched start\n");
+		print_all_queues();
+	}
+
 	struct sched_param lp;
 	int retval = -EINVAL;
 	prio_array_t *array;
@@ -1517,7 +1546,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 			 if( policy == SCHED_SHORT ){
 		if(param->requested_time > 5000 || param->requested_time < 1 || 
 		param->trial_num < 1 || param->trial_num > 50){
-		 printk("testf reached -EINVAL unvalid parameter\n");
+		 p2();
 		}
 	 }
 	
@@ -1545,8 +1574,8 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	 if( policy == SCHED_SHORT ){
 		if(param->requested_time > 5000 || param->requested_time < 1 || 
 		param->trial_num < 1 || param->trial_num > 50){
-		 printk("testf reached -EINVAL unvalid parameter\n");
-			HW2_DBG2("bad short params");
+			p2();
+			p4();
 			return -EINVAL;
 		}
 	 }
@@ -1566,7 +1595,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		retval = -EINVAL;
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
 				policy != SCHED_OTHER && policy != SCHED_SHORT ){ // HW2
-			printk("test 1324: policy:\t%d\n", policy);
+			p3(policy);
 			goto out_unlock;
 		}
 	}
@@ -1582,14 +1611,14 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	//printk("test 1336 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 	if ((policy == SCHED_OTHER || policy == SCHED_SHORT) != (lp.sched_priority == 0)) {//HW2
 		//printk("test 1338 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
-		HW2_DBG2("bad SCHED_OTHER params");
+		//HW2_DBG2("bad SCHED_OTHER params");
 		goto out_unlock;
 	}
 		
 	retval = -EPERM;
 	if ((policy == SCHED_FIFO || policy == SCHED_RR) && !capable(CAP_SYS_NICE))
 	{ // HW2 - TODO: check if we need extra condition for SHORT processes
-	    HW2_DBG2("bad SCHED_RR not caapable params");
+	    //HW2_DBG2("bad SCHED_RR not caapable params");
 		goto out_unlock;
 	}
 	//printk("test 1346 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
@@ -1597,12 +1626,12 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	if ((current->euid != p->euid) && (current->euid != p->uid) &&
 	    !capable(CAP_SYS_NICE))
 	{
-		HW2_DBG2("bad SCHED_RR not caapable params");
+		//HW2_DBG2("bad SCHED_RR not caapable params");
 		goto out_unlock;
 	}
 		
 	if ((p->policy == SCHED_FIFO || p->policy == SCHED_RR) && policy == SCHED_SHORT){ // HW2
-		HW2_DBG2("cannot change SCHED_FIFO/SCHED_RR to SCHED_SHORT");
+		//HW2_DBG2("cannot change SCHED_FIFO/SCHED_RR to SCHED_SHORT");
 		goto out_unlock;
 	}
 	//printk("test 1357 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
@@ -1623,7 +1652,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		p->array = rq->short_q;
 		p->current_trial = 0;
 		p->is_overdue = 0;
-		printk("HZ = %d\n", HZ);
+		//printk("HZ = %d\n", HZ);
 		p->time_slice = SHORT_TIMESLICE(p);
 		//printk("test 1378 : p->policy:\t%d\npolicy:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\ntime_slice:\t%d\n", p->policy, policy, p->number_of_trials, p->requested_time, p->time_slice);
 	
@@ -1633,6 +1662,7 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 		//printk("test 1380 : p->policy:\t%d\npolicy:\t%d\nprio:\t%d\nnumber_of_trials:\t%d\nrequested_time:\t%d\n", p->policy, policy, param->sched_priority, param->number_of_trials, param->requested_time);
 		goto out_unlock;
 	}
+	p->dbg_mark = param->mark;
 	p->policy = policy;
 	p->rt_priority = lp.sched_priority;
 	if (policy == SCHED_RR || policy == SCHED_FIFO) { // HW2 : change of condition to fit SCHED_SHORT
@@ -1642,16 +1672,19 @@ static int setscheduler(pid_t pid, int policy, struct sched_param *param)
 	}
 	
 	if (policy == SCHED_SHORT){
+		printk("before activate\n");
 		print_all_queues();//HW2-DBg
 	}
 	if (array){
 		activate_task(p, task_rq(p));
 	}
 	if (policy == SCHED_SHORT){
+		printk("after activate\n");
 		print_all_queues(); // HW2-HW2
 	}
 	if (p->policy == SCHED_SHORT){
 		record_switch(SR_HIGHIER_TASK_ACTIVE);
+		resched_task(current);
 		schedule();
 	}
 out_unlock:
@@ -1660,8 +1693,9 @@ out_unlock_tasklist:
 	read_unlock_irq(&tasklist_lock);
 
 out_nounlock:
+	printk("setsched end");
 	print_all_queues();
-	HW2_DBG2("");
+	
 	return retval;
 }
 

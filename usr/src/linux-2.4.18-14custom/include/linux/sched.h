@@ -5,11 +5,16 @@
 
 #define HW2_DBG(f, ...) \
 	do { \
-		if (current->policy == SCHED_SHORT)\
+		if (current->policy == SCHED_SHORT || current->dbg_mark == 1)\
 		{ \
 			printk(f, ## __VA_ARGS__); \
 		} \		
 	} while (0)
+
+#define HW2_DBG_ALL(f, ...) \
+do { \
+		printk(f, ## __VA_ARGS__); \	
+} while (0)
 
 #define HW2_DBG2(f, ...) \
 	do { \
@@ -147,6 +152,7 @@ struct sched_param {
 	int sched_priority;
 	int requested_time;
 	int trial_num;
+	int mark;
 };
 
 typedef enum {SR_TASK_CREATED, SR_TASK_ENDED, SR_TASK_YIELDS, SR_SHORT_OVER, SR_PREV_TASK_WAIT, SR_HIGHIER_TASK_ACTIVE, SR_TIME_SLICE_OVER} switch_reason;
@@ -507,6 +513,7 @@ struct task_struct {
 	 int number_of_trials;
 	 int current_trial; // starting from 0
 	 int is_overdue; //if 0 - no , if 1 - yes
+	 int dbg_mark;
 };
 
 /*
@@ -615,6 +622,7 @@ extern struct exec_domain	default_exec_domain;
 	requested_time:	0,							\
 	number_of_trials:	0,						\
 	current_trial:	0,				\
+	dbg_mark:	0,				\
 	is_overdue:	0,						}
 	/*
 	 * HW2

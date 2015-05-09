@@ -50,6 +50,7 @@ struct sched_param
     int __sched_priority;
 	int requested_time;
 	int trial_num;
+  int mark;
   };
 
 __BEGIN_DECLS
@@ -73,6 +74,7 @@ struct __sched_param
     int __sched_priority;
 	int requested_time;
 	int trial_num;
+  int mark;
   };
 # undef __need_schedparam
 #endif

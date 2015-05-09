@@ -745,6 +745,9 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 		} else {
 			p->is_overdue = 1;
 		}
+	}else
+	{
+		p->dbg_mark = 0;
 	}
 	
 	

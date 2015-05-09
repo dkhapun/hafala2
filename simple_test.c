@@ -27,7 +27,7 @@ int to_short(int pid, int policy, struct sched_param* param) {
 			return ret;
 		} 
 	}
-	for(i = 0; i < 10000; i++){}
+	//for(i = 0; i < 10000; i++){}
 	if ((ret = sched_setscheduler(pid,SCHED_SHORT,param)) < 0)
 	{
 		printf("setsched short error: %s", strerror(errno));
@@ -81,10 +81,11 @@ void testChangeRequestedTimeForShort() {
 		int expected_trials = 50;
 		paramIn.requested_time = expected_requested_time;
 		paramIn.trial_num = expected_trials;
+		paramIn.mark = 1;
 		printf("line 287 \n");
 		paramIn.sched_priority = 0;
-		//to_short(id, SCHED_SHORT, &paramIn); //make son short
-	//	assert(sched_getscheduler(id) == SCHED_SHORT);
+		to_short(id, SCHED_SHORT, &paramIn); //make son short
+		assert(sched_getscheduler(id) == SCHED_SHORT);
 		
 		printf("line 292 \n");
 		
